@@ -1,130 +1,139 @@
+'use client'
+
 import { useState, useRef } from 'react'
+import { validateFile, formatFileSize } from '@/lib/utils'
 
 interface FileUploadProps {
-  onFileSelect: (files: File[]) => void
-  accept?: string
-  multiple?: boolean
+  folderId: string
+  onFileUploaded: () => void
 }
 
-export default function FileUpload({ onFileSelect, accept = "audio/*,video/*", multiple = true }: FileUploadProps) {
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [uploading, setUploading] = useState(false)
+export default function FileUpload({ folderId, onFileUploaded }: FileUploadProps) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
+  const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(true)
-  }
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
 
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
+    setIsUploading(true)
+    setError('')
+    setUploadProgress({})
+
+    const uploadPromises = Array.from(files).map(async (file) => {
+      // Validate file before upload
+      const validation = validateFile(file)
+      if (!validation.valid) {
+        throw new Error(validation.error)
+      }
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folderId', folderId)
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Failed to upload ${file.name}`)
+        }
+
+        return await response.json()
+      } catch (err) {
+        throw new Error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      }
+    })
+
+    try {
+      await Promise.all(uploadPromises)
+      onFileUploaded()
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setIsUploading(false)
+      setUploadProgress({})
+    }
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDragOver(false)
-    
-    const files = Array.from(e.dataTransfer.files)
+    const files = e.dataTransfer.files
     if (files.length > 0) {
-      handleFiles(files)
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length > 0) {
-      handleFiles(files)
-    }
-  }
-
-  const handleFiles = async (files: File[]) => {
-    setUploading(true)
-    try {
-      // Filter files by accepted types
-      const acceptedFiles = files.filter(file => {
-        if (accept.includes('audio/*')) {
-          return file.type.startsWith('audio/') || file.type.startsWith('video/')
-        }
-        return true
-      })
-
-      if (acceptedFiles.length === 0) {
-        alert('Please select valid audio or video files')
-        return
+      const input = fileInputRef.current
+      if (input) {
+        input.files = files
+        input.dispatchEvent(new Event('change', { bubbles: true }))
       }
-
-      onFileSelect(acceptedFiles)
-    } catch (error) {
-      console.error('Error uploading files:', error)
-      alert('Error uploading files. Please try again.')
-    } finally {
-      setUploading(false)
     }
   }
 
-  const openFileDialog = () => {
-    fileInputRef.current?.click()
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
   }
 
   return (
-    <div className="w-full">
+    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Files</h3>
+      
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          isDragOver
-            ? 'border-blue-400 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
         onDrop={handleDrop}
+        onDragOver={handleDragOver}
       >
         <input
           ref={fileInputRef}
           type="file"
-          accept={accept}
-          multiple={multiple}
+          multiple
+          accept="audio/*,video/*"
           onChange={handleFileSelect}
           className="hidden"
+          disabled={isUploading}
         />
-
-        <div className="space-y-4">
-          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
+        
+        <div className="space-y-2">
+          <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          
+          <div className="text-gray-600">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="text-blue-600 hover:text-blue-500 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Click to upload
+            </button>
+            {' '}or drag and drop
           </div>
-
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">
-              {uploading ? 'Uploading...' : 'Upload Audio/Video Files'}
-            </h3>
-            <p className="text-gray-500 mt-1">
-              Drag and drop your files here, or{' '}
-              <button
-                type="button"
-                onClick={openFileDialog}
-                className="text-blue-500 hover:text-blue-600 font-medium"
-                disabled={uploading}
-              >
-                browse files
-              </button>
-            </p>
-          </div>
-
-          <div className="text-sm text-gray-500">
-            <p>Supported formats: MP3, WAV, MP4, MOV, AVI</p>
-            <p>Maximum file size: 100MB</p>
-          </div>
-
-          {uploading && (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-              <span className="text-blue-500">Processing files...</span>
-            </div>
-          )}
+          
+          <p className="text-xs text-gray-500">
+            Audio and video files up to 100MB
+          </p>
         </div>
       </div>
+
+      {isUploading && (
+        <div className="mt-4">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <span className="ml-2 text-sm text-gray-600">Uploading files...</span>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-4 text-red-600 text-sm">{error}</div>
+      )}
     </div>
   )
 } 

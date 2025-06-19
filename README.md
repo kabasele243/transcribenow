@@ -11,6 +11,7 @@ A modern, AI-powered audio transcription application built with Next.js, featuri
 - **📁 Smart Organization**: Create custom folders, tag files, and organize transcriptions
 - **📤 Flexible Export**: Export in TXT, DOCX, PDF, or SRT formats
 - **🔐 Secure Authentication**: User authentication powered by Clerk
+- **🗄️ Database**: Supabase with Row Level Security (RLS)
 - **📊 Dashboard Analytics**: Track transcription progress and manage files
 
 ## 🛠️ Tech Stack
@@ -19,6 +20,7 @@ A modern, AI-powered audio transcription application built with Next.js, featuri
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **Authentication**: Clerk
+- **Database**: Supabase (PostgreSQL with RLS)
 - **State Management**: Redux Toolkit with Redux Persist
 - **UI Components**: Custom components with modern design
 - **Development**: ESLint, Turbopack
@@ -40,14 +42,30 @@ A modern, AI-powered audio transcription application built with Next.js, featuri
    pnpm install
    ```
 
-3. **Set up environment variables**
+3. **Set up Supabase**
+   - Create a Supabase project at [supabase.com](https://supabase.com)
+   - Run the SQL migration from `supabase-migration.sql` in your Supabase SQL Editor
+   - Configure Clerk JWT template for Supabase integration
+
+4. **Set up environment variables**
    Create a `.env.local` file in the root directory:
    ```env
+   # Clerk Authentication
    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
    CLERK_SECRET_KEY=your_clerk_secret_key
+   
+   # Supabase Database
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+   NEXT_PUBLIC_SUPABASE_KEY=your-anon-public-key
+   
+   # AWS S3 (for file storage)
+   AWS_ACCESS_KEY_ID=your_aws_access_key_id
+   AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+   AWS_REGION=us-east-1
+   AWS_S3_BUCKET_NAME=your-s3-bucket-name
    ```
 
-4. **Run the development server**
+5. **Run the development server**
    ```bash
    npm run dev
    # or
@@ -56,7 +74,7 @@ A modern, AI-powered audio transcription application built with Next.js, featuri
    pnpm dev
    ```
 
-5. **Open your browser**
+6. **Open your browser**
    Navigate to [http://localhost:3000](http://localhost:3000) to see the application.
 
 ## 🏗️ Project Structure
@@ -72,30 +90,41 @@ src/
 ├── components/           # Reusable UI components
 │   ├── auth/            # Authentication components
 │   ├── DashboardLayout.tsx
-│   └── FolderSidebar.tsx
+│   ├── FolderSidebar.tsx
+│   └── SupabaseExample.tsx  # Example Supabase integration
 ├── hooks/               # Custom React hooks
 │   └── useClerkAuth.ts  # Clerk-Redux integration hook
+├── lib/                 # Utility libraries
+│   ├── supabase.ts      # Supabase client configuration
+│   ├── database.ts      # Database service layer
+│   └── actions.ts       # Server actions for Supabase
 ├── store/               # Redux store configuration
 │   ├── slices/          # Redux slices
 │   └── hooks.ts         # Redux hooks
 └── middleware.ts        # Next.js middleware
 ```
 
-## 🔐 Authentication
+## 🔐 Authentication & Database
 
-This application uses **Clerk** for authentication with **Redux** integration:
-
-- **Automatic State Sync**: Clerk authentication state is automatically synced with Redux
-- **Protected Routes**: Dashboard and upload pages are protected
-- **User Management**: Complete user profile management
-- **Session Persistence**: User sessions persist across browser sessions
+This application uses **Clerk** for authentication and **Supabase** for the database:
 
 ### Authentication Flow
-
 1. Users sign up/sign in through Clerk
 2. Authentication state is automatically synced to Redux
-3. Protected routes check Redux auth state
-4. User data is available throughout the application
+3. Clerk JWT tokens are used for Supabase authentication
+4. Row Level Security (RLS) ensures data isolation per user
+
+### Database Features
+- **Automatic User Isolation**: RLS policies ensure users can only access their own data
+- **Real-time Capabilities**: Supabase provides real-time subscriptions
+- **Type Safety**: Full TypeScript support with generated types
+- **Scalability**: Supabase handles database scaling automatically
+- **Simplified Architecture**: One database solution instead of multiple tools
+
+### Database Schema
+- **folders**: User folders for organizing files
+- **files**: File metadata and organization
+- **RLS Policies**: Automatic data isolation per user
 
 ## 📱 Usage
 
@@ -132,12 +161,23 @@ This application uses **Clerk** for authentication with **Redux** integration:
 ### Environment Variables for Production
 
 ```env
+# Clerk Authentication
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 CLERK_SECRET_KEY=your_clerk_secret_key
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
+
+# Supabase Database
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_KEY=your-anon-public-key
+
+# AWS S3
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=your-s3-bucket-name
 ```
 
 ## 🧪 Development
@@ -159,10 +199,12 @@ npm run lint         # Run ESLint
 
 ## 📚 Documentation
 
+- [Supabase Integration Setup](./SUPABASE_SETUP.md)
 - [Clerk-Redux Integration Guide](./CLERK_REDUX_INTEGRATION.md)
 - [Redux Setup Documentation](./REDUX_SETUP.md)
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Clerk Documentation](https://clerk.com/docs)
+- [Supabase Documentation](https://supabase.com/docs)
 
 ## 🤝 Contributing
 
@@ -186,4 +228,4 @@ If you encounter any issues or have questions:
 
 ---
 
-Built with ❤️ using Next.js, Clerk, and Redux
+Built with ❤️ using Next.js, Clerk, Supabase, and Redux

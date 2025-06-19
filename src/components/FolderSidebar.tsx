@@ -1,11 +1,21 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
+interface File {
+  id: string
+  name: string
+  size: number
+  mimeType: string
+  url: string
+  createdAt: string
+}
+
 interface Folder {
   id: string
   name: string
-  fileCount: number
+  userId: string
   createdAt: string
+  files: File[]
 }
 
 interface FolderSidebarProps {
@@ -115,7 +125,7 @@ export default function FolderSidebar({ folders, currentFolderId, onCreateFolder
                       </svg>
                       <div>
                         <p className="font-medium truncate">{folder.name}</p>
-                        <p className="text-sm text-gray-500">{folder.fileCount} files</p>
+                        <p className="text-sm text-gray-500">{folder.files.length} files</p>
                       </div>
                     </div>
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

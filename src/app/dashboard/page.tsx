@@ -3,107 +3,63 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/DashboardLayout'
 import FolderSidebar from '@/components/FolderSidebar'
+import CreateFolderForm from '@/components/CreateFolderForm'
+
+interface File {
+  id: string
+  name: string
+  size: number
+  mimeType: string
+  url: string
+  createdAt: string
+}
 
 interface Folder {
   id: string
   name: string
-  fileCount: number
+  userId: string
   createdAt: string
-}
-
-interface RecentFile {
-  id: string
-  name: string
-  folderName: string
-  status: 'pending' | 'processing' | 'completed' | 'error'
-  uploadedAt: string
+  files: File[]
 }
 
 export default function DashboardPage() {
   const [folders, setFolders] = useState<Folder[]>([])
-  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showCreateFolder, setShowCreateFolder] = useState(false)
 
-  // Mock data - replace with actual API calls
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setFolders([
-        {
-          id: '1',
-          name: 'Meeting Recordings',
-          fileCount: 5,
-          createdAt: '2024-01-15T10:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'Podcast Episodes',
-          fileCount: 12,
-          createdAt: '2024-01-10T14:30:00Z'
-        },
-        {
-          id: '3',
-          name: 'Interviews',
-          fileCount: 3,
-          createdAt: '2024-01-05T09:15:00Z'
-        }
-      ])
-
-      setRecentFiles([
-        {
-          id: '1',
-          name: 'team-meeting-2024-01-15.mp3',
-          folderName: 'Meeting Recordings',
-          status: 'completed',
-          uploadedAt: '2024-01-15T10:00:00Z'
-        },
-        {
-          id: '2',
-          name: 'podcast-episode-45.mp3',
-          folderName: 'Podcast Episodes',
-          status: 'processing',
-          uploadedAt: '2024-01-14T16:30:00Z'
-        },
-        {
-          id: '3',
-          name: 'interview-john-doe.mp4',
-          folderName: 'Interviews',
-          status: 'pending',
-          uploadedAt: '2024-01-14T11:20:00Z'
-        }
-      ])
-
+  const fetchFolders = async () => {
+    try {
+      const response = await fetch('/api/folders')
+      if (!response.ok) {
+        throw new Error('Failed to fetch folders')
+      }
+      const data = await response.json()
+      setFolders(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch folders')
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
+  }
+
+  useEffect(() => {
+    fetchFolders()
   }, [])
 
   const handleCreateFolder = () => {
-    const folderName = prompt('Enter folder name:')
-    if (folderName) {
-      const newFolder: Folder = {
-        id: Date.now().toString(),
-        name: folderName,
-        fileCount: 0,
-        createdAt: new Date().toISOString()
-      }
-      setFolders(prev => [newFolder, ...prev])
-    }
+    setShowCreateFolder(true)
   }
 
-  const getStatusColor = (status: RecentFile['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'processing':
-        return 'bg-blue-100 text-blue-800'
-      case 'completed':
-        return 'bg-green-100 text-green-800'
-      case 'error':
-        return 'bg-red-100 text-red-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
+  const handleFolderCreated = () => {
+    setShowCreateFolder(false)
+    fetchFolders()
   }
+
+  const totalFiles = folders.reduce((sum, folder) => sum + folder.files.length, 0)
+  const completedFiles = folders.reduce((sum, folder) => 
+    sum + folder.files.filter(f => f.mimeType.startsWith('audio/') || f.mimeType.startsWith('video/')).length, 0
+  )
 
   if (loading) {
     return (
@@ -123,6 +79,12 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-2">Welcome back! Here&apos;s an overview of your transcription projects.</p>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main content */}
@@ -148,14 +110,12 @@ export default function DashboardPage() {
                 <div className="flex items-center">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Completed</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {recentFiles.filter(f => f.status === 'completed').length}
-                    </p>
+                    <p className="text-sm font-medium text-gray-600">Total Files</p>
+                    <p className="text-2xl font-bold text-gray-900">{totalFiles}</p>
                   </div>
                 </div>
               </div>
@@ -168,10 +128,8 @@ export default function DashboardPage() {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">In Progress</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {recentFiles.filter(f => f.status === 'processing' || f.status === 'pending').length}
-                    </p>
+                    <p className="text-sm font-medium text-gray-600">Media Files</p>
+                    <p className="text-2xl font-bold text-gray-900">{completedFiles}</p>
                   </div>
                 </div>
               </div>
@@ -183,29 +141,30 @@ export default function DashboardPage() {
                 <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
               </div>
               <div className="divide-y divide-gray-200">
-                {recentFiles.length === 0 ? (
+                {folders.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">
-                    <p>No recent activity</p>
+                    <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                    </svg>
+                    <p>No folders yet</p>
+                    <p className="text-sm">Create your first folder to get started</p>
                   </div>
                 ) : (
-                  recentFiles.map((file) => (
-                    <div key={file.id} className="p-4">
+                  folders.slice(0, 5).map((folder) => (
+                    <div key={folder.id} className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
                           </svg>
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                            <p className="text-sm text-gray-500">{file.folderName}</p>
+                            <p className="text-sm font-medium text-gray-900">{folder.name}</p>
+                            <p className="text-sm text-gray-500">{folder.files.length} files</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(file.status)}`}>
-                            {file.status}
-                          </span>
                           <span className="text-sm text-gray-500">
-                            {new Date(file.uploadedAt).toLocaleDateString()}
+                            {new Date(folder.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
@@ -217,11 +176,15 @@ export default function DashboardPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <FolderSidebar
-              folders={folders}
-              onCreateFolder={handleCreateFolder}
-            />
+          <div className="lg:col-span-1 space-y-6">
+            {showCreateFolder ? (
+              <CreateFolderForm onFolderCreated={handleFolderCreated} />
+            ) : (
+              <FolderSidebar
+                folders={folders}
+                onCreateFolder={handleCreateFolder}
+              />
+            )}
           </div>
         </div>
       </div>
