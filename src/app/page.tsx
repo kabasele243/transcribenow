@@ -1,4 +1,10 @@
+'use client'
+
 import Image from "next/image";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAppSelector } from '@/store/hooks';
+import { selectIsAuthenticated, selectAuthLoading } from '@/store/slices/authSlice';
 
 // Features data
 const features = [
@@ -77,6 +83,33 @@ const features = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const authLoading = useAppSelector(selectAuthLoading);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-gray-600">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render the landing page if user is authenticated (they will be redirected)
+  if (isAuthenticated) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen">
       {/* Hero Section */}

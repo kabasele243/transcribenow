@@ -5,14 +5,13 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { useAppSelector } from '@/store/hooks'
-import { selectUser, selectIsAuthenticated, selectAuthLoading } from '@/store/slices/authSlice'
+import { selectIsAuthenticated, selectAuthLoading } from '@/store/slices/authSlice'
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
   
   // Redux auth state
-  const user = useAppSelector(selectUser)
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const authLoading = useAppSelector(selectAuthLoading)
 
@@ -23,7 +22,6 @@ export default function Header() {
   }
 
   const navigation = [
-    ...(isAuthenticated ? [{ name: 'Home', href: '/' }] : []),
     ...(isAuthenticated ? [{ name: 'Dashboard', href: '/dashboard' }] : []),
     { name: 'Pricing', href: '/pricing' },
     { name: 'Contact', href: '/contact' },
@@ -43,9 +41,6 @@ export default function Header() {
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false)
   }
-
-  console.log({isAuthenticated})
-  console.log({user})
 
   return (
     <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-white/20">
