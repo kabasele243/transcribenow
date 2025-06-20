@@ -18,6 +18,15 @@ export interface File {
   created_at: string
 }
 
+export interface Transcription {
+  id: string
+  file_id: string
+  content: string
+  status: 'pending' | 'processing' | 'completed' | 'error'
+  created_at: string
+  updated_at: string
+}
+
 // Folder operations
 export async function getFolders(): Promise<Folder[]> {
   const supabase = createServerSupabaseClient()
@@ -134,6 +143,89 @@ export async function getFileById(id: string): Promise<File | null> {
     }
     console.error('Error fetching file:', error)
     throw new Error('Failed to fetch file')
+  }
+
+  return data
+}
+
+// Transcription operations
+export async function createTranscription(transcriptionData: {
+  file_id: string
+  content: string
+  status: Transcription['status']
+}): Promise<Transcription> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('transcriptions')
+    .insert(transcriptionData)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating transcription:', error)
+    throw new Error('Failed to create transcription')
+  }
+
+  return data
+}
+
+export async function getTranscriptionByFileId(fileId: string): Promise<Transcription | null> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('transcriptions')
+    .select('*')
+    .eq('file_id', fileId)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null // Transcription not found
+    }
+    console.error('Error fetching transcription:', error)
+    throw new Error('Failed to fetch transcription')
+  }
+
+  return data
+}
+
+export async function getTranscriptionsByFolderId(folderId: string): Promise<Transcription[]> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('transcriptions')
+    .select(`
+      *,
+      files (
+        id,
+        name,
+        mime_type,
+        folder_id
+      )
+    `)
+    .eq('files.folder_id', folderId)
+
+  if (error) {
+    console.error('Error fetching transcriptions:', error)
+    throw new Error('Failed to fetch transcriptions')
+  }
+
+  return data || []
+}
+
+export async function updateTranscriptionStatus(
+  id: string, 
+  status: Transcription['status']
+): Promise<Transcription> {
+  const supabase = createServerSupabaseClient()
+  const { data, error } = await supabase
+    .from('transcriptions')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating transcription:', error)
+    throw new Error('Failed to update transcription')
   }
 
   return data

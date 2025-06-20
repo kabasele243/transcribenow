@@ -1,3 +1,8 @@
+-- Drop existing tables if they exist (CASCADE will also drop dependent tables)
+DROP TABLE IF EXISTS "public"."transcriptions" CASCADE;
+DROP TABLE IF EXISTS "public"."files" CASCADE;
+DROP TABLE IF EXISTS "public"."folders" CASCADE;
+
 -- Create folders table
 create table "public"."folders" (
   id text not null default gen_random_uuid()::text,

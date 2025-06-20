@@ -14,77 +14,139 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData()
-    const file = formData.get('file') as File
+    const files = formData.getAll('files') as File[]
     const folderId = formData.get('folderId') as string
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    if (!files || files.length === 0) {
+      return NextResponse.json({ error: 'No files provided' }, { status: 400 })
     }
 
-    if (!folderId) {
-      return NextResponse.json({ error: 'Folder ID is required' }, { status: 400 })
-    }
-
-    // Validate file
-    const validation = validateFile(file)
-    if (!validation.valid) {
-      return NextResponse.json({ error: validation.error }, { status: 400 })
-    }
-
-    // Verify folder exists and belongs to user
     const supabase = createServerSupabaseClient()
-    const { data: folder, error: folderError } = await supabase
-      .from('folders')
-      .select('*')
-      .eq('id', folderId)
-      .single()
+    let targetFolderId = folderId
 
-    if (folderError || !folder) {
-      return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
+    // If no folder ID provided, create or get default folder
+    if (!targetFolderId) {
+      // Check if user has a default folder
+      const { data: existingFolder, error: folderError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('name', 'Default Folder')
+        .single()
+
+      if (folderError || !existingFolder) {
+        // Create default folder
+        const { data: newFolder, error: createError } = await supabase
+          .from('folders')
+          .insert({
+            name: 'Default Folder',
+            user_id: userId,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          console.error('Error creating default folder:', createError)
+          return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 })
+        }
+
+        targetFolderId = newFolder.id
+      } else {
+        targetFolderId = existingFolder.id
+      }
+    } else {
+      // Verify folder exists and belongs to user
+      const { data: folder, error: folderError } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('id', targetFolderId)
+        .eq('user_id', userId)
+        .single()
+
+      if (folderError || !folder) {
+        return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
+      }
     }
 
-    // Generate unique file key for S3
-    const uniqueFileName = generateUniqueFileName(file.name)
-    const s3Key = `uploads/${userId}/${folderId}/${uniqueFileName}`
+    const results = []
+    const errors = []
 
-    // Convert file to buffer
-    const buffer = Buffer.from(await file.arrayBuffer())
+    // Process each file
+    for (const file of files) {
+      try {
+        // Validate file
+        const validation = validateFile(file)
+        if (!validation.valid) {
+          errors.push({
+            fileName: file.name,
+            error: validation.error
+          })
+          continue
+        }
 
-    // Upload to S3
-    const uploadCommand = new PutObjectCommand({
-      Bucket: S3_BUCKET_NAME,
-      Key: s3Key,
-      Body: buffer,
-      ContentType: file.type,
-      ContentLength: file.size,
-    })
+        // Generate unique file key for S3
+        const uniqueFileName = generateUniqueFileName(file.name)
+        const s3Key = `uploads/${userId}/${targetFolderId}/${uniqueFileName}`
 
-    await s3Client.send(uploadCommand)
+        // Convert file to buffer
+        const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Generate S3 URL
-    const s3Url = `https://${S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`
+        // Upload to S3
+        const uploadCommand = new PutObjectCommand({
+          Bucket: S3_BUCKET_NAME,
+          Key: s3Key,
+          Body: buffer,
+          ContentType: file.type,
+          ContentLength: file.size,
+        })
 
-    // Save file metadata to database
-    const { data: savedFile, error: fileError } = await supabase
-      .from('files')
-      .insert({
-        folder_id: folderId,
-        name: file.name,
-        size: file.size,
-        mime_type: file.type,
-        url: s3Url,
-      })
-      .select()
-      .single()
+        await s3Client.send(uploadCommand)
 
-    if (fileError) {
-      console.error('Error saving file metadata:', fileError)
-      return NextResponse.json({ error: 'Failed to save file metadata' }, { status: 500 })
+        // Generate S3 URL
+        const s3Url = `https://${S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`
+
+        // Save file metadata to database
+        const { data: savedFile, error: fileError } = await supabase
+          .from('files')
+          .insert({
+            folder_id: targetFolderId,
+            name: file.name,
+            size: file.size,
+            mime_type: file.type,
+            url: s3Url,
+          })
+          .select()
+          .single()
+
+        if (fileError) {
+          console.error('Error saving file metadata:', fileError)
+          errors.push({
+            fileName: file.name,
+            error: 'Failed to save file metadata'
+          })
+          continue
+        }
+
+        results.push(savedFile)
+      } catch (error) {
+        console.error('Error uploading file:', error)
+        errors.push({
+          fileName: file.name,
+          error: 'Upload failed'
+        })
+      }
     }
 
-    return NextResponse.json(savedFile, { status: 201 })
+    // Return results
+    return NextResponse.json({
+      success: results.length > 0,
+      uploadedFiles: results,
+      folderId: targetFolderId,
+      errors: errors.length > 0 ? errors : undefined
+    }, { status: 200 })
   } catch (error) {
-    console.error('Error uploading file:', error)
+    console.error('Error uploading files:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 
