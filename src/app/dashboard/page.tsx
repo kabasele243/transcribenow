@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Folder, Upload, MoreVertical, Search, Mic, LayoutGrid, CheckCircle2, AudioLines as Waveform } from 'lucide-react'
+import { Folder, Upload, MoreVertical, Search, Mic, LayoutGrid, CheckCircle2, AudioLines as Waveform, Plus } from 'lucide-react'
 import UploadModal from '@/components/UploadModal'
 import TranscriptionView from '@/components/TranscriptionView'
-import { useFolders, useUpdateFolder, useDeleteFolder, type FolderWithFiles, type File as FileType } from '@/hooks/useApi'
+import { useFolders, useUpdateFolder, useDeleteFolder, useCreateFolder, type FolderWithFiles, type File as FileType } from '@/hooks/useApi'
 import { useEnhancedFile } from '@/lib/apiUtils'
 
 // FileRow component that uses enhanced file data
@@ -89,9 +89,12 @@ export default function DashboardPage() {
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
   const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
 
   const updateFolderMutation = useUpdateFolder()
   const deleteFolderMutation = useDeleteFolder()
+  const createFolderMutation = useCreateFolder()
 
   useEffect(() => {
     if (!selectedFolderId && folders && folders.length > 0) {
@@ -173,6 +176,18 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return
+    
+    try {
+      await createFolderMutation.mutateAsync(newFolderName.trim())
+      setNewFolderName('')
+      setShowCreateFolderModal(false)
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -221,7 +236,16 @@ export default function DashboardPage() {
           </div>
           
           <div>
-            <h2 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Folders</h2>
+            <div className="flex items-center justify-between px-4 mb-2">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Folders</h2>
+              <button
+                onClick={() => setShowCreateFolderModal(true)}
+                className="p-1 rounded-md hover:bg-gray-200 transition-colors"
+                title="Create new folder"
+              >
+                <Plus className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
             <ul className="mt-2 space-y-1">
               {folders.map(folder => (
                 <li key={folder.id}>
@@ -359,6 +383,56 @@ export default function DashboardPage() {
           }}
           folderId={selectedFolderId}
         />
+      )}
+
+      {/* Create Folder Modal */}
+      {showCreateFolderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Folder</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="folderName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  id="folderName"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter folder name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleCreateFolder()
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowCreateFolderModal(false)
+                    setNewFolderName('')
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateFolder}
+                  disabled={!newFolderName.trim() || createFolderMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {createFolderMutation.isPending ? 'Creating...' : 'Create Folder'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
