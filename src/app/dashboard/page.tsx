@@ -10,9 +10,10 @@ interface File {
   id: string
   name: string
   size: number
-  mimeType: string
+  mime_type: string
   url: string
-  createdAt: string
+  created_at: string
+  source?: 'database' | 's3'
 }
 
 interface FolderWithFiles extends Folder {
@@ -32,12 +33,7 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch folders')
       }
       const data = await response.json()
-      // Add empty files array to each folder for now
-      const foldersWithFiles: FolderWithFiles[] = data.map((folder: Folder) => ({
-        ...folder,
-        files: []
-      }))
-      setFolders(foldersWithFiles)
+      setFolders(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch folders')
     } finally {
@@ -60,7 +56,7 @@ export default function DashboardPage() {
 
   const totalFiles = folders.reduce((sum, folder) => sum + folder.files.length, 0)
   const completedFiles = folders.reduce((sum, folder) => 
-    sum + folder.files.filter(f => f.mimeType.startsWith('audio/') || f.mimeType.startsWith('video/')).length, 0
+    sum + folder.files.filter(f => f.mime_type.startsWith('audio/') || f.mime_type.startsWith('video/')).length, 0
   )
 
   if (loading) {

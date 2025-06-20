@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:aws": "node scripts/test-aws-setup.js"
+    "test:aws": "node scripts/test-aws-setup.js",
+    "test:s3": "node scripts/test-s3-integration.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.832.0",

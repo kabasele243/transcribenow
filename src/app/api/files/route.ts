@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { listS3Files, S3File } from '@/lib/s3'
 
-interface CombinedFile {
+export interface CombinedFile {
   id: string
   name: string
   size: number
@@ -17,7 +17,7 @@ interface CombinedFile {
   last_modified?: string
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth()
     
@@ -25,67 +25,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { name } = await request.json()
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return NextResponse.json({ error: 'Folder name is required' }, { status: 400 })
-    }
-
-    const supabase = createServerSupabaseClient()
-    const { data: folder, error } = await supabase
-      .from('folders')
-      .insert({ name: name.trim() })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error creating folder:', error)
-      return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 })
-    }
-
-    return NextResponse.json(folder, { status: 201 })
-  } catch (error) {
-    console.error('Error creating folder:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function GET() {
-  try {
-    const { userId } = await auth()
-    
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { searchParams } = new URL(request.url)
+    const folderId = searchParams.get('folderId')
 
     const supabase = createServerSupabaseClient()
     
-    // Get all folders
-    const { data: folders, error: foldersError } = await supabase
-      .from('folders')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (foldersError) {
-      console.error('Error fetching folders:', foldersError)
-      return NextResponse.json({ error: 'Failed to fetch folders' }, { status: 500 })
-    }
-
     // Get files from database
-    const { data: dbFiles, error: filesError } = await supabase
+    let dbQuery = supabase
       .from('files')
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (filesError) {
-      console.error('Error fetching database files:', filesError)
-      return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 })
+    if (folderId) {
+      dbQuery = dbQuery.eq('folder_id', folderId)
+    }
+
+    const { data: dbFiles, error: dbError } = await dbQuery
+
+    if (dbError) {
+      console.error('Error fetching database files:', dbError)
+      return NextResponse.json({ error: 'Failed to fetch database files' }, { status: 500 })
     }
 
     // Get files from S3
     let s3Files: S3File[] = []
     try {
-      s3Files = await listS3Files(userId)
+      s3Files = await listS3Files(userId, folderId || undefined)
     } catch (s3Error) {
       console.error('Error fetching S3 files:', s3Error)
       // Continue with database files only if S3 fails
@@ -103,7 +68,7 @@ export async function GET() {
         
         combinedFiles.push({
           ...dbFile,
-          source: 'database'
+          source: 'database' as const
         })
       }
     }
@@ -120,22 +85,19 @@ export async function GET() {
           created_at: s3File.lastModified.toISOString(),
           folder_id: s3File.folderId,
           user_id: s3File.userId,
-          source: 's3',
+          source: 's3' as const,
           s3_key: s3File.key,
           last_modified: s3File.lastModified.toISOString()
         })
       }
     }
 
-    // Combine folders with their files
-    const foldersWithFiles = folders?.map(folder => ({
-      ...folder,
-      files: combinedFiles?.filter(file => file.folder_id === folder.id) || []
-    })) || []
+    // Sort by creation date (newest first)
+    combinedFiles.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    return NextResponse.json(foldersWithFiles)
+    return NextResponse.json(combinedFiles)
   } catch (error) {
-    console.error('Error fetching folders:', error)
+    console.error('Error fetching files:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 

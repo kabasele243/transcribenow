@@ -10,9 +10,10 @@ interface File {
   id: string
   name: string
   size: number
-  mimeType: string
+  mime_type: string
   url: string
-  createdAt: string
+  created_at: string
+  source?: 'database' | 's3'
 }
 
 interface FolderWithFiles extends Folder {
@@ -40,13 +41,7 @@ export default function FolderDetailPage() {
         return
       }
       
-      // Mock files data for now - replace with actual API call
-      const folderWithFiles: FolderWithFiles = {
-        ...foundFolder,
-        files: []
-      }
-      
-      setFolder(folderWithFiles)
+      setFolder(foundFolder)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch folder')
     } finally {
