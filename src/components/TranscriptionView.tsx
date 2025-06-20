@@ -46,30 +46,6 @@ export default function TranscriptionView({ file }: TranscriptionViewProps) {
                 {enhancedFile.transcription?.content || 'No transcription available'}
               </p>
             </div>
-            <footer className="p-4 bg-gray-50 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon">
-                            <Play className="h-6 w-6" />
-                        </Button>
-                        <div className="w-96 h-2 bg-gray-200 rounded-full">
-                           <div className="w-1/3 h-full bg-blue-600 rounded-full"></div>
-                        </div>
-                        <span className="text-sm font-mono text-gray-600">34:03</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon">
-                           <Volume2 className="h-5 w-5" />
-                        </Button>
-                        <div className="w-24 h-1 bg-gray-300 rounded-full">
-                           <div className="w-1/2 h-full bg-blue-600 rounded-full"></div>
-                        </div>
-                        <Button variant="ghost" size="icon">
-                           <Settings2 className="h-5 w-5" />
-                        </Button>
-                    </div>
-                </div>
-            </footer>
           </main>
           <aside className="w-[300px] bg-gray-50 border-l border-gray-200 p-6 flex flex-col space-y-6">
             <h2 className="text-lg font-semibold text-gray-800">Export</h2>

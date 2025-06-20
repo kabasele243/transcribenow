@@ -66,10 +66,6 @@ export default function TranscriptionModal({ isOpen, onClose, file }: Transcript
                   <Button variant="ghost" size="icon">
                     <Play className="h-6 w-6" />
                   </Button>
-                  <div className="w-96 h-2 bg-gray-200 rounded-full">
-                    <div className="w-1/3 h-full bg-blue-600 rounded-full"></div>
-                  </div>
-                  <span className="text-sm font-mono text-gray-600">34:03</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Button variant="ghost" size="icon">
