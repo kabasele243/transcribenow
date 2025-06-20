@@ -7,13 +7,12 @@ import { combineReducers } from '@reduxjs/toolkit'
 import foldersSlice from './slices/foldersSlice'
 import uploadsSlice from './slices/uploadsSlice'
 import authSlice from './slices/authSlice'
-import supabaseSlice from './slices/supabaseSlice'
 
 // Persist configuration
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['folders', 'auth', 'supabase'], // Only persist these reducers
+  whitelist: ['folders', 'auth'], // Only persist these reducers
   blacklist: ['uploads'] // Don't persist uploads state
 }
 
@@ -22,7 +21,6 @@ const rootReducer = combineReducers({
   folders: foldersSlice,
   uploads: uploadsSlice,
   auth: authSlice,
-  supabase: supabaseSlice,
 })
 
 // Persisted reducer

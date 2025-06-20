@@ -37,7 +37,7 @@ export default function UploadPage() {
     id: folder.id,
     name: folder.name,
     user_id: 'user1', // Mock user ID
-    created_at: folder.createdAt
+    created_at: folder.created_at
   }))
 
   // Fetch folders on component mount
@@ -124,7 +124,7 @@ export default function UploadPage() {
                         </svg>
                         <div>
                           <p className="font-medium text-gray-900">{folder.name}</p>
-                          <p className="text-sm text-gray-500">{folder.fileCount} files</p>
+                          <p className="text-sm text-gray-500">{folder.files.length} files</p>
                         </div>
                       </div>
                     </label>

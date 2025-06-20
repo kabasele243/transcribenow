@@ -2,12 +2,26 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
 import { RootState } from '../index'
 
 // Types
+export interface File {
+  id: string
+  name: string
+  size: number
+  mime_type: string
+  url: string
+  created_at: string
+  folder_id: string
+  user_id: string
+  source: 'database' | 's3'
+  s3_key?: string
+  last_modified?: string
+}
+
 export interface Folder {
   id: string
   name: string
-  fileCount: number
-  createdAt: string
-  updatedAt: string
+  user_id: string
+  created_at: string
+  files: File[]
 }
 
 interface FoldersState {
@@ -37,53 +51,32 @@ export const selectSelectedFolder = (state: RootState) =>
 export const fetchFolders = createAsyncThunk(
   'folders/fetchFolders',
   async () => {
-    // Simulate API call - replace with actual API
-    const response = await new Promise<Folder[]>((resolve) => {
-      setTimeout(() => {
-        resolve([
-          {
-            id: '1',
-            name: 'Meeting Recordings',
-            fileCount: 5,
-            createdAt: '2024-01-15T10:00:00Z',
-            updatedAt: '2024-01-15T10:00:00Z'
-          },
-          {
-            id: '2',
-            name: 'Podcast Episodes',
-            fileCount: 12,
-            createdAt: '2024-01-10T14:30:00Z',
-            updatedAt: '2024-01-10T14:30:00Z'
-          },
-          {
-            id: '3',
-            name: 'Interviews',
-            fileCount: 3,
-            createdAt: '2024-01-05T09:15:00Z',
-            updatedAt: '2024-01-05T09:15:00Z'
-          }
-        ])
-      }, 1000)
-    })
-    return response
+    const response = await fetch('/api/folders')
+    if (!response.ok) {
+      throw new Error('Failed to fetch folders')
+    }
+    const data = await response.json()
+    return data
   }
 )
 
 export const createFolder = createAsyncThunk(
   'folders/createFolder',
   async (name: string) => {
-    // Simulate API call - replace with actual API
-    const newFolder: Folder = {
-      id: Date.now().toString(),
-      name,
-      fileCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+    const response = await fetch('/api/folders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to create folder')
     }
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
+    const newFolder = await response.json()
     return newFolder
   }
 )
@@ -91,17 +84,20 @@ export const createFolder = createAsyncThunk(
 export const updateFolder = createAsyncThunk(
   'folders/updateFolder',
   async ({ id, name }: { id: string; name: string }) => {
-    // Simulate API call - replace with actual API
-    const updatedFolder: Folder = {
-      id,
-      name,
-      fileCount: 0, // This would be fetched from API
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+    const response = await fetch(`/api/folders/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to update folder')
     }
     
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
+    const updatedFolder = await response.json()
     return updatedFolder
   }
 )
@@ -109,8 +105,15 @@ export const updateFolder = createAsyncThunk(
 export const deleteFolder = createAsyncThunk(
   'folders/deleteFolder',
   async (id: string) => {
-    // Simulate API call - replace with actual API
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const response = await fetch(`/api/folders/${id}`, {
+      method: 'DELETE',
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to delete folder')
+    }
+    
     return id
   }
 )
@@ -126,15 +129,15 @@ const foldersSlice = createSlice({
     incrementFileCount: (state, action: PayloadAction<string>) => {
       const folder = state.folders.find(f => f.id === action.payload)
       if (folder) {
-        folder.fileCount += 1
-        folder.updatedAt = new Date().toISOString()
+        // Note: fileCount is now calculated from files array length
+        // This action is kept for backward compatibility but may not be needed
       }
     },
     decrementFileCount: (state, action: PayloadAction<string>) => {
       const folder = state.folders.find(f => f.id === action.payload)
-      if (folder && folder.fileCount > 0) {
-        folder.fileCount -= 1
-        folder.updatedAt = new Date().toISOString()
+      if (folder) {
+        // Note: fileCount is now calculated from files array length
+        // This action is kept for backward compatibility but may not be needed
       }
     },
     clearError: (state) => {
@@ -166,8 +169,10 @@ const foldersSlice = createSlice({
       })
       .addCase(createFolder.fulfilled, (state, action) => {
         state.loading = false
-        state.folders.unshift(action.payload)
-        state.selectedFolderId = action.payload.id
+        // Add the new folder with empty files array
+        const newFolder = { ...action.payload, files: [] }
+        state.folders.unshift(newFolder)
+        state.selectedFolderId = newFolder.id
       })
       .addCase(createFolder.rejected, (state, action) => {
         state.loading = false
@@ -182,7 +187,9 @@ const foldersSlice = createSlice({
         state.loading = false
         const index = state.folders.findIndex(f => f.id === action.payload.id)
         if (index !== -1) {
-          state.folders[index] = action.payload
+          // Preserve the files array when updating
+          const currentFiles = state.folders[index].files
+          state.folders[index] = { ...action.payload, files: currentFiles }
         }
       })
       .addCase(updateFolder.rejected, (state, action) => {

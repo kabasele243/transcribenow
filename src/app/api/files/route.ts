@@ -100,4 +100,44 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching files:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { userId } = await auth()
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const fileData = await request.json()
+    const { folder_id, name, size, mime_type, url } = fileData
+
+    if (!folder_id || !name || !size || !mime_type || !url) {
+      return NextResponse.json({ error: 'Missing required file data' }, { status: 400 })
+    }
+
+    const supabase = createServerSupabaseClient()
+    const { data: newFile, error } = await supabase
+      .from('files')
+      .insert({
+        folder_id,
+        name,
+        size,
+        mime_type,
+        url,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating file:', error)
+      return NextResponse.json({ error: 'Failed to create file' }, { status: 500 })
+    }
+
+    return NextResponse.json(newFile, { status: 201 })
+  } catch (error) {
+    console.error('Error creating file:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 } 

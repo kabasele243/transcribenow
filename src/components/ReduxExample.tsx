@@ -63,7 +63,7 @@ export default function ReduxExample() {
                   <span className={selectedFolderId === folder.id ? 'font-medium' : ''}>
                     {folder.name}
                   </span>
-                  <span className="text-sm text-gray-500">({folder.fileCount} files)</span>
+                  <span className="text-sm text-gray-500">({folder.files.length} files)</span>
                 </div>
                 <button
                   onClick={() => handleDeleteFolder(folder.id)}
