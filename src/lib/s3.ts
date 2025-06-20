@@ -1,4 +1,4 @@
-import { S3Client, ListObjectsV2Command, HeadObjectCommand, HeadObjectCommandOutput } from '@aws-sdk/client-s3'
+import { S3Client, ListObjectsV2Command, HeadObjectCommand, HeadObjectCommandOutput, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 // Configure S3 client with access key authentication
 const createS3Client = () => {
@@ -96,6 +96,20 @@ export async function getS3FileMetadata(key: string): Promise<HeadObjectCommandO
     console.error('Error getting S3 file metadata:', error)
     throw new Error('Failed to get S3 file metadata')
   }
+}
+
+// Delete a file from S3
+export async function deleteS3File(key: string): Promise<void> {
+    try {
+        const command = new DeleteObjectCommand({
+            Bucket: S3_BUCKET_NAME,
+            Key: key,
+        });
+        await s3Client.send(command);
+    } catch (error) {
+        console.error('Error deleting S3 file:', error);
+        throw new Error('Failed to delete S3 file');
+    }
 }
 
 // Check if a file exists in S3

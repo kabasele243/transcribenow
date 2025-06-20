@@ -9,7 +9,7 @@ export interface File {
   mime_type: string
   url: string
   created_at: string
-  folder_id: string
+  folder_id: string | null
   user_id: string
   source: 'database' | 's3'
   s3_key?: string
@@ -26,6 +26,7 @@ export interface Folder {
 
 interface FoldersState {
   folders: Folder[]
+  unorganizedFiles: File[]
   selectedFolderId: string | null
   loading: boolean
   error: string | null
@@ -34,6 +35,7 @@ interface FoldersState {
 // Initial state
 const initialState: FoldersState = {
   folders: [],
+  unorganizedFiles: [],
   selectedFolderId: null,
   loading: false,
   error: null,
@@ -41,6 +43,7 @@ const initialState: FoldersState = {
 
 // Selectors
 export const selectFolders = (state: RootState) => state.folders.folders
+export const selectUnorganizedFiles = (state: RootState) => state.folders.unorganizedFiles
 export const selectSelectedFolderId = (state: RootState) => state.folders.selectedFolderId
 export const selectFoldersLoading = (state: RootState) => state.folders.loading
 export const selectFoldersError = (state: RootState) => state.folders.error
@@ -153,9 +156,10 @@ const foldersSlice = createSlice({
       })
       .addCase(fetchFolders.fulfilled, (state, action) => {
         state.loading = false
-        state.folders = action.payload
-        if (action.payload.length > 0 && !state.selectedFolderId) {
-          state.selectedFolderId = action.payload[0].id
+        state.folders = action.payload.folders || []
+        state.unorganizedFiles = action.payload.unorganizedFiles || []
+        if (action.payload.folders?.length > 0 && !state.selectedFolderId) {
+          state.selectedFolderId = action.payload.folders[0].id
         }
       })
       .addCase(fetchFolders.rejected, (state, action) => {

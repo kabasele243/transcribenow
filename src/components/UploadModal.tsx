@@ -6,6 +6,7 @@ interface UploadModalProps {
   isOpen: boolean
   onClose: () => void
   onFilesUploaded: () => void
+  folderId?: string | null
 }
 
 interface UploadingFile {
@@ -24,7 +25,7 @@ interface UploadError {
   error: string
 }
 
-export default function UploadModal({ isOpen, onClose, onFilesUploaded }: UploadModalProps) {
+export default function UploadModal({ isOpen, onClose, onFilesUploaded, folderId }: UploadModalProps) {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [error, setError] = useState('')
@@ -58,6 +59,11 @@ export default function UploadModal({ isOpen, onClose, onFilesUploaded }: Upload
         filesToUpload.forEach(uploadingFile => {
           formData.append('files', uploadingFile.file)
         })
+        
+        // Add folderId if provided
+        if (folderId) {
+          formData.append('folderId', folderId)
+        }
 
         const response = await fetch('/api/upload', {
           method: 'POST',
@@ -136,7 +142,7 @@ export default function UploadModal({ isOpen, onClose, onFilesUploaded }: Upload
     }
 
     uploadFiles(newUploadingFiles)
-  }, [onFilesUploaded, onClose])
+  }, [onFilesUploaded, onClose, folderId])
 
   const handleTranscribe = async () => {
     const mediaFiles = uploadingFiles.filter(f => 

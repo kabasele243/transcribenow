@@ -1,279 +1,342 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import DashboardLayout from '@/components/DashboardLayout'
+import { useState, useEffect, useMemo } from 'react'
+import { Folder, Upload, MoreVertical, Search, Mic, LayoutGrid, CheckCircle2, AudioLines as Waveform } from 'lucide-react'
 import UploadModal from '@/components/UploadModal'
-import TranscriptionModal from '@/components/TranscriptionModal'
-import { Folder } from '@/lib/database'
+import TranscriptionView from '@/components/TranscriptionView'
+import { useFolders, useUpdateFolder, useDeleteFolder, type FolderWithFiles, type File as FileType } from '@/hooks/useApi'
+import { useEnhancedFile } from '@/lib/apiUtils'
 
-interface File {
-  id: string
-  name: string
-  size: number
-  mime_type: string
-  url: string
-  created_at: string
-  transcription?: {
-    id: string
-    content: string
-    status: string
-  }
-}
+// FileRow component that uses enhanced file data
+function FileRow({ 
+  file, 
+  isSelected, 
+  onSelect, 
+  onClick 
+}: { 
+  file: FileType
+  isSelected: boolean
+  onSelect: (fileId: string) => void
+  onClick: (file: FileType) => void
+}) {
+  const enhancedFile = useEnhancedFile(file)
+  
+  const formatDate = (dateString?: string | Date) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
 
-interface FolderWithFiles extends Folder {
-  files: File[]
+  const formatDuration = (seconds?: number) => {
+    if (seconds === undefined || seconds === null) return '-';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}m ${s}s`;
+  };
+
+  return (
+    <tr className="hover:bg-gray-50" onClick={() => onClick(enhancedFile)}>
+      <td className="p-4">
+        <input 
+          type="checkbox"
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          checked={isSelected}
+          onChange={(e) => {
+            e.stopPropagation();
+            onSelect(enhancedFile.id);
+          }}
+        />
+      </td>
+      <td className="p-4 font-medium text-gray-800">{enhancedFile.name}</td>
+      <td className="p-4 text-gray-600">{formatDate(enhancedFile.created_at)}</td>
+      <td className="p-4 text-gray-600">{formatDuration(enhancedFile.duration)}</td>
+      <td className="p-4 text-gray-600">
+        <Waveform className="w-5 h-5 text-blue-500" />
+      </td>
+      <td className="p-4">
+        {enhancedFile.transcription ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+             <CheckCircle2 className="w-4 h-4 mr-1.5" />
+            Completed
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            Pending
+          </span>
+        )}
+      </td>
+      <td className="p-4">
+         <button className="p-1 rounded-md hover:bg-gray-200 transition-colors">
+           <MoreVertical className="w-4 h-4 text-gray-500" />
+         </button>
+      </td>
+    </tr>
+  )
 }
 
 export default function DashboardPage() {
-  const [folders, setFolders] = useState<FolderWithFiles[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [showUploadModal, setShowUploadModal] = useState(false)
-  const [showTranscriptionModal, setShowTranscriptionModal] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFile, setSelectedFile] = useState<FileType | null>(null)
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
 
-  const fetchFolders = async () => {
+  const { data: foldersData, isLoading, error } = useFolders()
+  const updateFolderMutation = useUpdateFolder()
+  const deleteFolderMutation = useDeleteFolder()
+
+  const folders = useMemo(() => foldersData?.folders || [], [foldersData?.folders])
+  const unorganizedFiles = foldersData?.unorganizedFiles || []
+
+  useEffect(() => {
+    if (!selectedFolderId && folders && folders.length > 0) {
+      setSelectedFolderId(folders[0].id)
+    }
+  }, [folders, selectedFolderId])
+
+  const handleRenameFolder = async (id: string, name: string) => {
     try {
-      const response = await fetch('/api/folders')
-      if (!response.ok) {
-        throw new Error('Failed to fetch folders')
-      }
-      const data = await response.json()
-      
-      // Fetch transcriptions for each folder
-      const foldersWithTranscriptions = await Promise.all(
-        data.map(async (folder: FolderWithFiles) => {
-          const transcriptionResponse = await fetch(`/api/transcriptions?folderId=${folder.id}`)
-          if (transcriptionResponse.ok) {
-            const { transcriptions } = await transcriptionResponse.json()
-            
-            // Map transcriptions to files
-            const filesWithTranscriptions = folder.files.map(file => {
-              const transcription = transcriptions?.find((t: { files?: { id: string } }) => t.files?.id === file.id)
-              return {
-                ...file,
-                transcription: transcription ? {
-                  id: transcription.id,
-                  content: transcription.content,
-                  status: transcription.status
-                } : undefined
-              }
-            })
-            
-            return {
-              ...folder,
-              files: filesWithTranscriptions
-            }
-          }
-          return folder
-        })
-      )
-      
-      setFolders(foldersWithTranscriptions)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch folders')
-    } finally {
-      setLoading(false)
+      await updateFolderMutation.mutateAsync({ id, name })
+    } catch (error) {
+      console.error(error)
     }
   }
 
-  useEffect(() => {
-    fetchFolders()
-  }, [])
-
-  const handleUploadClick = () => {
-    setShowUploadModal(true)
+  const handleRenameFolderFromMenu = (folder: FolderWithFiles) => {
+    const newName = window.prompt('Enter new folder name:', folder.name)
+    if (newName && newName.trim() !== '' && newName.trim() !== folder.name) {
+      handleRenameFolder(folder.id, newName.trim())
+    }
+    setIsFolderMenuOpen(false)
   }
 
-  const handleFilesUploaded = () => {
-    setShowUploadModal(false)
-    fetchFolders()
+  const handleDeleteFolder = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this folder and all its contents?')) {
+      try {
+        await deleteFolderMutation.mutateAsync(id)
+        setSelectedFolderId(null)
+      } catch (error) {
+        console.error(error)
+      }
+    }
   }
 
-  const handleFileClick = (file: File) => {
+  const handleExportFolder = async (id: string) => {
+    try {
+      const response = await fetch(`/api/export?folderId=${id}`)
+      if (!response.ok) {
+        throw new Error('Failed to export folder')
+      }
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const folderName = folders.find(f => f.id === id)?.name || 'export'
+      a.download = `${folderName}.zip`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleFileClick = (file: FileType) => {
     setSelectedFile(file)
-    setShowTranscriptionModal(true)
   }
 
-  const handleCloseTranscriptionModal = () => {
-    setShowTranscriptionModal(false)
-    setSelectedFile(null)
-  }
+  const handleSelectFile = (fileId: string) => {
+    setSelectedFileIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fileId)) {
+        newSet.delete(fileId);
+      } else {
+        newSet.add(fileId);
+      }
+      return newSet;
+    });
+  };
 
-  // Get all transcribed files across all folders
-  const allTranscribedFiles = folders.flatMap(folder => 
-    folder.files.filter(file => file.transcription)
-  )
+  const handleSelectAllFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFolder = folders.find(f => f.id === selectedFolderId)
+    const currentFiles = selectedFolder ? selectedFolder.files : unorganizedFiles
+    
+    if (e.target.checked) {
+      setSelectedFileIds(new Set(currentFiles.map(f => f.id)));
+    } else {
+      setSelectedFileIds(new Set());
+    }
+  };
 
-  const totalFiles = folders.reduce((sum, folder) => sum + folder.files.length, 0)
-  const mediaFiles = folders.reduce((sum, folder) => 
-    sum + folder.files.filter(f => f.mime_type.startsWith('audio/') || f.mime_type.startsWith('video/')).length, 0
-  )
-  const transcribedFiles = allTranscribedFiles.length
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
     )
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-red-500">Error: {error.message}</div>
+      </div>
+    )
+  }
+
+  const selectedFolder = folders.find(f => f.id === selectedFolderId)
+  const currentFiles = selectedFolder ? selectedFolder.files : unorganizedFiles
+  const currentFolderName = selectedFolder ? selectedFolder.name : "Recent Files"
+
   return (
-    <DashboardLayout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transcribe AI</h1>
-            <p className="text-gray-600 mt-2">View and manage your transcribed files.</p>
-          </div>
-          <button
-            onClick={handleUploadClick}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <span>Upload Files</span>
+    <div className="flex h-screen font-sans bg-white text-gray-800">
+      <aside className="w-[280px] bg-gray-50 flex flex-col border-r border-gray-200">
+        <div className="p-4 shrink-0">
+          <button className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors">
+            <span className="text-lg">∞</span>
+            <span>Unlimited</span>
           </button>
         </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <p className="text-red-600">{error}</p>
+        
+        <nav className="px-2 py-4 space-y-4 flex-1 overflow-y-auto">
+          <div>
+            <h2 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Shortcuts</h2>
+            <ul className="mt-2">
+              <li>
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setSelectedFolderId(null); setSelectedFile(null); }}
+                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${!selectedFolderId ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`}
+                >
+                  <LayoutGrid className="w-5 h-5 mr-3" />
+                  Recent Files
+                </a>
+              </li>
+            </ul>
           </div>
-        )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Files</p>
-                <p className="text-2xl font-bold text-gray-900">{totalFiles}</p>
-              </div>
-            </div>
+          
+          <div>
+            <h2 className="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Folders</h2>
+            <ul className="mt-2 space-y-1">
+              {folders.map(folder => (
+                <li key={folder.id}>
+                  <a
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); setSelectedFolderId(folder.id); setSelectedFile(null); }}
+                    className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${selectedFolderId === folder.id ? 'bg-gray-200 text-gray-900' : 'text-gray-600 hover:bg-gray-100'}`}
+                  >
+                    <Folder className="w-5 h-5 mr-3" />
+                    <span className="flex-1 truncate">{folder.name}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
+        </nav>
+      </aside>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Media Files</p>
-                <p className="text-2xl font-bold text-gray-900">{mediaFiles}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Transcribed</p>
-                <p className="text-2xl font-bold text-gray-900">{transcribedFiles}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Transcribed Files */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Transcribed Files</h3>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {allTranscribedFiles.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p>No transcribed files yet</p>
-                <p className="text-sm">Upload audio or video files and wait for transcription to complete</p>
+      {selectedFile ? (
+        <TranscriptionView file={selectedFile} />
+      ) : (
+        <div className="flex-1 flex flex-col">
+          <main className="flex-1 overflow-y-auto p-8 bg-gray-50">
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">{currentFolderName}</h1>
+              <div className="flex items-center space-x-2">
+                <button className="p-2 rounded-md hover:bg-gray-200 transition-colors"><Search className="w-5 h-5 text-gray-500" /></button>
+                <button className="p-2 rounded-md hover:bg-gray-200 transition-colors"><Mic className="w-5 h-5 text-gray-500" /></button>
                 <button
-                  onClick={handleUploadClick}
-                  className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                  onClick={() => setShowUploadModal(true)}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  Upload Files
+                  <Upload className="w-4 h-4 mr-2" />
+                  Transcribe Files
                 </button>
-              </div>
-            ) : (
-              allTranscribedFiles.map((file) => (
-                <div 
-                  key={file.id} 
-                  className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => handleFileClick(file)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-4">
-                      <div className="p-2 bg-green-100 rounded-lg">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="text-lg font-medium text-gray-900">{file.name}</h4>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Transcribed
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {new Date(file.created_at).toLocaleDateString()} • {Math.round(file.size / 1024)} KB
-                        </p>
-                        {file.transcription && (
-                          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                            <h5 className="text-sm font-medium text-gray-900 mb-2">Transcription Preview:</h5>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
-                              {file.transcription.content.length > 200 
-                                ? `${file.transcription.content.substring(0, 200)}...` 
-                                : file.transcription.content
-                              }
-                            </p>
-                            <p className="text-xs text-blue-600 mt-2">Click to view full transcription</p>
-                          </div>
-                        )}
-                      </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setIsFolderMenuOpen(!isFolderMenuOpen)}
+                    className="p-2 rounded-md hover:bg-gray-200 transition-colors"
+                  >
+                    <MoreVertical className="w-5 h-5 text-gray-500" />
+                  </button>
+                  {isFolderMenuOpen && selectedFolder && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                      <button
+                        onClick={() => handleRenameFolderFromMenu(selectedFolder)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => handleExportFolder(selectedFolder.id)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Export
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFolder(selectedFolder.id)}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      >
+                        Delete
+                      </button>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-4 w-10 text-left">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          onChange={handleSelectAllFiles}
+                          checked={currentFiles.length > 0 && selectedFileIds.size === currentFiles.length}
+                        />
+                      </th>
+                      <th className="p-4 text-left font-semibold text-gray-600">Name</th>
+                      <th className="p-4 text-left font-semibold text-gray-600">Uploaded</th>
+                      <th className="p-4 text-left font-semibold text-gray-600">Duration</th>
+                      <th className="p-4 text-left font-semibold text-gray-600">Mode</th>
+                      <th className="p-4 text-left font-semibold text-gray-600">Status</th>
+                      <th className="p-4 w-12"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {currentFiles.map(file => (
+                      <FileRow
+                        key={file.id}
+                        file={file}
+                        isSelected={selectedFileIds.has(file.id)}
+                        onSelect={handleSelectFile}
+                        onClick={handleFileClick}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </main>
         </div>
-      </div>
+      )}
 
       <UploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
-        onFilesUploaded={handleFilesUploaded}
+        onFilesUploaded={() => {
+          setShowUploadModal(false)
+        }}
       />
-
-      <TranscriptionModal
-        isOpen={showTranscriptionModal}
-        onClose={handleCloseTranscriptionModal}
-        file={selectedFile}
-      />
-    </DashboardLayout>
+    </div>
   )
 } 

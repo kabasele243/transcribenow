@@ -1,167 +1,154 @@
-import { Fragment } from 'react'
-import { Dialog, Transition } from '@headlessui/react'
+'use client'
 
-interface File {
-  id: string
-  name: string
-  size: number
-  mime_type: string
-  url: string
-  created_at: string
-  transcription?: {
-    id: string
-    content: string
-    status: string
-  }
-}
+import { File as FileType } from '@/hooks/useApi'
+import { useEnhancedFile } from '@/lib/apiUtils'
+import { X, Download, FileText, Share2, Edit, Trash2, Settings, Play, Volume2, Mic, Settings2 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
 
 interface TranscriptionModalProps {
   isOpen: boolean
   onClose: () => void
-  file: File | null
+  file: FileType
 }
 
 export default function TranscriptionModal({ isOpen, onClose, file }: TranscriptionModalProps) {
-  if (!file) return null
+  // Use enhanced file to get transcription data
+  const enhancedFile = useEnhancedFile(file)
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
+  if (!isOpen) return null
 
-  const getFileTypeIcon = (mimeType: string) => {
-    if (mimeType.startsWith('audio/')) {
-      return (
-        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-      )
-    } else if (mimeType.startsWith('video/')) {
-      return (
-        <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2z" />
-        </svg>
-      )
-    } else {
-      return (
-        <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-      )
-    }
-  }
+  const formatDate = (dateString?: string | Date) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
 
   return (
-    <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
-        <Transition.Child
-          as={Fragment}
-          enter="ease-out duration-300"
-          enterFrom="opacity-0"
-          enterTo="opacity-100"
-          leave="ease-in duration-200"
-          leaveFrom="opacity-100"
-          leaveTo="opacity-0"
-        >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
-        </Transition.Child>
-
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <Transition.Child
-              as={Fragment}
-              enter="ease-out duration-300"
-              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-              enterTo="opacity-100 translate-y-0 sm:scale-100"
-              leave="ease-in duration-200"
-              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
-              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-            >
-              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-4xl sm:p-6">
-                <div className="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
-                  <button
-                    type="button"
-                    className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    onClick={onClose}
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-green-100 sm:mx-0 sm:h-10 sm:w-10">
-                    {getFileTypeIcon(file.mime_type)}
-                  </div>
-                  <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                    <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900">
-                      {file.name}
-                    </Dialog.Title>
-                    <div className="mt-2">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-                        <span>Created: {new Date(file.created_at).toLocaleDateString()}</span>
-                        <span>Size: {formatFileSize(file.size)}</span>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Transcribed
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Transcription</h4>
-                    {file.transcription ? (
-                      <div className="bg-white rounded-lg border border-gray-200 p-4 max-h-96 overflow-y-auto">
-                        <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                          {file.transcription.content}
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-gray-500">No transcription available</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-6 sm:mt-4 sm:flex sm:flex-row-reverse">
-                  <button
-                    type="button"
-                    className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto"
-                    onClick={onClose}
-                  >
-                    Close
-                  </button>
-                  <button
-                    type="button"
-                    className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
-                    onClick={() => {
-                      // Copy transcription to clipboard
-                      if (file.transcription) {
-                        navigator.clipboard.writeText(file.transcription.content)
-                          .then(() => {
-                            // You could add a toast notification here
-                            console.log('Transcription copied to clipboard')
-                          })
-                          .catch(err => {
-                            console.error('Failed to copy transcription:', err)
-                          })
-                      }
-                    }}
-                  >
-                    Copy Transcription
-                  </button>
-                </div>
-              </Dialog.Panel>
-            </Transition.Child>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h1 className="text-xl font-bold">{enhancedFile.name}</h1>
+            <p className="text-sm text-gray-500">{formatDate(enhancedFile.created_at)}</p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-      </Dialog>
-    </Transition.Root>
+
+        {/* Content */}
+        <div className="flex flex-1 overflow-hidden">
+          <main className="flex-1 flex flex-col">
+            <div className="flex-1 overflow-y-auto p-6">
+              <p className="text-base text-gray-800 leading-relaxed whitespace-pre-wrap">
+                {enhancedFile.transcription?.content || 'No transcription available'}
+              </p>
+            </div>
+            <footer className="p-4 bg-gray-50 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon">
+                    <Play className="h-6 w-6" />
+                  </Button>
+                  <div className="w-96 h-2 bg-gray-200 rounded-full">
+                    <div className="w-1/3 h-full bg-blue-600 rounded-full"></div>
+                  </div>
+                  <span className="text-sm font-mono text-gray-600">34:03</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon">
+                    <Volume2 className="h-5 w-5" />
+                  </Button>
+                  <div className="w-24 h-1 bg-gray-300 rounded-full">
+                    <div className="w-1/2 h-full bg-blue-600 rounded-full"></div>
+                  </div>
+                  <Button variant="ghost" size="icon">
+                    <Settings2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+            </footer>
+          </main>
+
+          {/* Sidebar */}
+          <aside className="w-[300px] bg-gray-50 border-l border-gray-200 p-6 flex flex-col space-y-6 overflow-y-auto">
+            <h2 className="text-lg font-semibold text-gray-800">Export</h2>
+            <div className="space-y-2">
+              <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                <FileText className="w-5 h-5 text-red-500" />
+                <span className="text-sm font-medium">Download PDF</span>
+              </button>
+              <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                <FileText className="w-5 h-5 text-blue-500" />
+                <span className="text-sm font-medium">Download DOCX</span>
+              </button>
+              <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                <FileText className="w-5 h-5 text-gray-500" />
+                <span className="text-sm font-medium">Download TXT</span>
+              </button>
+              <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                <Mic className="w-5 h-5 text-green-500" />
+                <span className="text-sm font-medium">Download SRT</span>
+              </button>
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="w-full justify-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Advanced Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuItem>Export with timestamps</DropdownMenuItem>
+                <DropdownMenuItem>More formats</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-base font-semibold text-gray-800 mb-4">More</h3>
+              <div className="space-y-2">
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Settings className="w-5 h-5 text-gray-600" />
+                  <span className="text-sm font-medium">Show Timestamps</span>
+                </button>
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Share2 className="w-5 h-5 text-gray-600" />
+                  <span className="text-sm font-medium">Share Transcript</span>
+                </button>
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Edit className="w-5 h-5 text-gray-600" />
+                  <span className="text-sm font-medium">Edit Transcript</span>
+                </button>
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Download className="w-5 h-5 text-gray-600" />
+                  <span className="text-sm font-medium">Download Audio</span>
+                </button>
+                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                  <span className="text-sm font-medium text-red-600">Delete File</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
   )
 } 

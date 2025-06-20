@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { listS3Files, S3File } from '@/lib/s3'
+import { listS3Files, S3File, deleteS3File } from '@/lib/s3'
 
 interface CombinedFile {
   id: string
@@ -10,11 +10,24 @@ interface CombinedFile {
   mime_type: string
   url: string
   created_at: string
-  folder_id: string
+  folder_id: string | null
   user_id: string
   source: 'database' | 's3'
   s3_key?: string
   last_modified?: string
+}
+
+interface FolderWithFiles {
+  id: string
+  name: string
+  user_id: string
+  created_at: string
+  files: CombinedFile[]
+}
+
+interface FoldersResponse {
+  folders: FolderWithFiles[]
+  unorganizedFiles: CombinedFile[]
 }
 
 export async function POST(request: NextRequest) {
@@ -34,7 +47,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerSupabaseClient()
     const { data: folder, error } = await supabase
       .from('folders')
-      .insert({ name: name.trim() })
+      .insert({ name: name.trim(), user_id: userId })
       .select()
       .single()
 
@@ -48,6 +61,107 @@ export async function POST(request: NextRequest) {
     console.error('Error creating folder:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const { userId } = await auth()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id, name } = await request.json()
+    if (!id || !name || typeof name !== 'string' || name.trim().length === 0) {
+      return NextResponse.json({ error: 'Folder ID and name are required' }, { status: 400 })
+    }
+
+    const supabase = createServerSupabaseClient()
+    const { data, error } = await supabase
+      .from('folders')
+      .update({ name: name.trim() })
+      .eq('id', id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error renaming folder:', error)
+      return NextResponse.json({ error: 'Failed to rename folder' }, { status: 500 })
+    }
+
+    return NextResponse.json(data, { status: 200 })
+  } catch (error) {
+    console.error('Error renaming folder:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const { userId } = await auth();
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { id } = await request.json();
+        if (!id) {
+            return NextResponse.json({ error: 'Folder ID is required' }, { status: 400 });
+        }
+
+        const supabase = createServerSupabaseClient();
+
+        // 1. Get all files in the folder
+        const { data: files, error: filesError } = await supabase
+            .from('files')
+            .select('id, name')
+            .eq('folder_id', id)
+            .eq('user_id', userId);
+
+        if (filesError) {
+            console.error('Error fetching files for folder:', filesError);
+            return NextResponse.json({ error: 'Failed to fetch files for deletion' }, { status: 500 });
+        }
+
+        if (files && files.length > 0) {
+            // 2. For each file, delete transcription and S3 object
+            for (const file of files) {
+                // Delete from S3
+                const s3Key = `uploads/${userId}/${id}/${file.name}`;
+                await deleteS3File(s3Key);
+
+                // Delete transcription
+                await supabase.from('transcriptions').delete().eq('file_id', file.id);
+            }
+
+            // 3. Delete all file records for the folder
+            const { error: deleteFilesError } = await supabase
+                .from('files')
+                .delete()
+                .eq('folder_id', id);
+
+            if (deleteFilesError) {
+                console.error('Error deleting file records:', deleteFilesError);
+                return NextResponse.json({ error: 'Failed to delete file records' }, { status: 500 });
+            }
+        }
+
+        // 4. Delete the folder itself
+        const { error: deleteFolderError } = await supabase
+            .from('folders')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', userId);
+
+        if (deleteFolderError) {
+            console.error('Error deleting folder:', deleteFolderError);
+            return NextResponse.json({ error: 'Failed to delete folder' }, { status: 500 });
+        }
+
+        return NextResponse.json({ message: 'Folder deleted successfully' }, { status: 200 });
+    } catch (error) {
+        console.error('Error deleting folder:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
 }
 
 export async function GET() {
@@ -98,7 +212,9 @@ export async function GET() {
     // Add database files first
     if (dbFiles) {
       for (const dbFile of dbFiles) {
-        const key = `uploads/${userId}/${dbFile.folder_id}/${dbFile.name}`
+        const key = dbFile.folder_id 
+          ? `uploads/${userId}/${dbFile.folder_id}/${dbFile.name}`
+          : `uploads/${userId}/unorganized/${dbFile.name}`
         processedKeys.add(key)
         
         combinedFiles.push({
@@ -127,13 +243,20 @@ export async function GET() {
       }
     }
 
-    // Combine folders with their files
+    // Separate files by folder and unorganized files
     const foldersWithFiles = folders?.map(folder => ({
       ...folder,
       files: combinedFiles?.filter(file => file.folder_id === folder.id) || []
     })) || []
 
-    return NextResponse.json(foldersWithFiles)
+    const unorganizedFiles = combinedFiles?.filter(file => file.folder_id === null) || []
+
+    const response: FoldersResponse = {
+      folders: foldersWithFiles,
+      unorganizedFiles
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching folders:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

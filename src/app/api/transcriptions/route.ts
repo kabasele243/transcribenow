@@ -25,10 +25,15 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (error) {
+        if (error.code === 'PGRST116') {
+          // No transcription found, return empty array
+          return NextResponse.json({ transcriptions: [] })
+        }
         return NextResponse.json({ error: 'Transcription not found' }, { status: 404 })
       }
 
-      return NextResponse.json({ transcription })
+      // Return in consistent format as transcriptions array
+      return NextResponse.json({ transcriptions: [transcription] })
     } else if (folderId) {
       // Get all transcriptions for a folder
       const { data: transcriptions, error } = await supabase

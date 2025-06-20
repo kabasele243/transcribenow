@@ -22,41 +22,10 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerSupabaseClient()
-    let targetFolderId = folderId
+    const targetFolderId = folderId || null
 
-    // If no folder ID provided, create or get default folder
-    if (!targetFolderId) {
-      // Check if user has a default folder
-      const { data: existingFolder, error: folderError } = await supabase
-        .from('folders')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('name', 'Default Folder')
-        .single()
-
-      if (folderError || !existingFolder) {
-        // Create default folder
-        const { data: newFolder, error: createError } = await supabase
-          .from('folders')
-          .insert({
-            name: 'Default Folder',
-            user_id: userId,
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single()
-
-        if (createError) {
-          console.error('Error creating default folder:', createError)
-          return NextResponse.json({ error: 'Failed to create folder' }, { status: 500 })
-        }
-
-        targetFolderId = newFolder.id
-      } else {
-        targetFolderId = existingFolder.id
-      }
-    } else {
-      // Verify folder exists and belongs to user
+    // If folder ID is provided, verify it exists and belongs to user
+    if (targetFolderId) {
       const { data: folder, error: folderError } = await supabase
         .from('folders')
         .select('*')
@@ -87,7 +56,9 @@ export async function POST(request: NextRequest) {
 
         // Generate unique file key for S3
         const uniqueFileName = generateUniqueFileName(file.name)
-        const s3Key = `uploads/${userId}/${targetFolderId}/${uniqueFileName}`
+        const s3Key = targetFolderId 
+          ? `uploads/${userId}/${targetFolderId}/${uniqueFileName}`
+          : `uploads/${userId}/unorganized/${uniqueFileName}`
 
         // Convert file to buffer
         const buffer = Buffer.from(await file.arrayBuffer())
