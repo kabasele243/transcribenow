@@ -80,7 +80,7 @@ export default function FolderDetailPage() {
     if (folderId) {
       fetchFolder()
     }
-  }, [folderId])
+  }, [folderId, fetchFolder])
 
   const handleUploadClick = () => {
     setShowUploadModal(true)

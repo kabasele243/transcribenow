@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         transcriptionId: transcription.id
       })
       
-    } catch (assemblyError: any) {
+    } catch (assemblyError: unknown) {
       // Update transcription record with error status
       await supabase
         .from('transcriptions')
@@ -127,16 +127,21 @@ export async function POST(request: NextRequest) {
       
       // Provide more specific error messages
       let errorMessage = 'Transcription service error'
-      if (assemblyError.message) {
+      if (assemblyError instanceof Error) {
         errorMessage = assemblyError.message
-      } else if (assemblyError.status === 401) {
-        errorMessage = 'Invalid AssemblyAI API key'
-      } else if (assemblyError.status === 403) {
-        errorMessage = 'AssemblyAI API key has insufficient permissions'
-      } else if (assemblyError.status === 429) {
-        errorMessage = 'AssemblyAI rate limit exceeded'
-      } else if (assemblyError.status === 400) {
-        errorMessage = 'Invalid audio file or URL'
+      } else if (typeof assemblyError === 'object' && assemblyError !== null) {
+        const errorObj = assemblyError as { status?: number; message?: string }
+        if (errorObj.status === 401) {
+          errorMessage = 'Invalid AssemblyAI API key'
+        } else if (errorObj.status === 403) {
+          errorMessage = 'AssemblyAI API key has insufficient permissions'
+        } else if (errorObj.status === 429) {
+          errorMessage = 'AssemblyAI rate limit exceeded'
+        } else if (errorObj.status === 400) {
+          errorMessage = 'Invalid audio file or URL'
+        } else if (errorObj.message) {
+          errorMessage = errorObj.message
+        }
       }
       
       return NextResponse.json({ 

@@ -393,7 +393,7 @@ export default function UploadModal({ isOpen, onClose, onFilesUploaded }: Upload
             <div>
               <div className="mb-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Transcribe</h3>
-                <p className="text-gray-600">Click the button below to transcribe your audio/video files to text using AssemblyAI's advanced speech recognition.</p>
+                <p className="text-gray-600">Click the button below to transcribe your audio/video files to text using AssemblyAI&apos;s advanced speech recognition.</p>
               </div>
 
               <div className="space-y-3 mb-6">
