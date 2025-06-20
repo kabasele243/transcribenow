@@ -21,21 +21,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No files provided' }, { status: 400 })
     }
 
+    // Require folder selection
+    if (!folderId) {
+      return NextResponse.json({ error: 'Folder selection is required' }, { status: 400 })
+    }
+
     const supabase = createServerSupabaseClient()
-    const targetFolderId = folderId || null
 
-    // If folder ID is provided, verify it exists and belongs to user
-    if (targetFolderId) {
-      const { data: folder, error: folderError } = await supabase
-        .from('folders')
-        .select('*')
-        .eq('id', targetFolderId)
-        .eq('user_id', userId)
-        .single()
+    // Verify folder exists and belongs to user
+    const { data: folder, error: folderError } = await supabase
+      .from('folders')
+      .select('*')
+      .eq('id', folderId)
+      .eq('user_id', userId)
+      .single()
 
-      if (folderError || !folder) {
-        return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
-      }
+    if (folderError || !folder) {
+      return NextResponse.json({ error: 'Folder not found' }, { status: 404 })
     }
 
     const results = []
@@ -56,9 +58,7 @@ export async function POST(request: NextRequest) {
 
         // Generate unique file key for S3
         const uniqueFileName = generateUniqueFileName(file.name)
-        const s3Key = targetFolderId 
-          ? `uploads/${userId}/${targetFolderId}/${uniqueFileName}`
-          : `uploads/${userId}/unorganized/${uniqueFileName}`
+        const s3Key = `uploads/${userId}/${folderId}/${uniqueFileName}`
 
         // Convert file to buffer
         const buffer = Buffer.from(await file.arrayBuffer())
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         const { data: savedFile, error: fileError } = await supabase
           .from('files')
           .insert({
-            folder_id: targetFolderId,
+            folder_id: folderId,
             name: file.name,
             size: file.size,
             mime_type: file.type,
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: results.length > 0,
       uploadedFiles: results,
-      folderId: targetFolderId,
+      folderId: folderId,
       errors: errors.length > 0 ? errors : undefined
     }, { status: 200 })
   } catch (error) {

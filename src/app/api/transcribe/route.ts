@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { AssemblyAI } from 'assemblyai'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { GetObjectCommand } from '@aws-sdk/client-s3'
+import { s3Client, S3_BUCKET_NAME } from '@/lib/s3'
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,9 +70,24 @@ export async function POST(request: NextRequest) {
     try {
       console.log('Starting transcription for file:', fileName, 'URL:', fileUrl)
       
-      // Transcribe the audio file using AssemblyAI
+      // Generate a pre-signed URL for AssemblyAI to access the S3 file
+      // Extract the S3 key from the file URL
+      const urlParts = fileUrl.split('/')
+      const s3Key = urlParts.slice(3).join('/') // Remove the https://bucket.s3.region.amazonaws.com part
+      
+      const command = new GetObjectCommand({
+        Bucket: S3_BUCKET_NAME,
+        Key: s3Key,
+      })
+      
+      // Generate pre-signed URL that expires in 1 hour
+      const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
+      
+      console.log('Generated pre-signed URL for AssemblyAI')
+      
+      // Transcribe the audio file using AssemblyAI with the pre-signed URL
       const transcript = await client.transcripts.transcribe({
-        audio: fileUrl,
+        audio: presignedUrl,
         speech_model: 'slam-1' // Using the latest Slam-1 model for best accuracy
       })
 
@@ -113,7 +131,7 @@ export async function POST(request: NextRequest) {
         transcriptionId: transcription.id
       })
       
-    } catch (assemblyError: unknown) {
+    } catch (assemblyError) {
       // Update transcription record with error status
       await supabase
         .from('transcriptions')

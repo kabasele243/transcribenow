@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 
 interface FileUploadProps {
-  folderId?: string
+  folderId: string
   onFileUploaded: () => void
 }
 
@@ -58,9 +58,7 @@ export default function FileUpload({ folderId, onFileUploaded }: FileUploadProps
         filesToUpload.forEach(uploadingFile => {
           formData.append('files', uploadingFile.file)
         })
-        if (folderId) {
-          formData.append('folderId', folderId)
-        }
+        formData.append('folderId', folderId)
 
         const response = await fetch('/api/upload', {
           method: 'POST',

@@ -10,7 +10,7 @@ interface CombinedFile {
   mime_type: string
   url: string
   created_at: string
-  folder_id: string | null
+  folder_id: string
   user_id: string
   source: 'database' | 's3'
   s3_key?: string
@@ -27,7 +27,6 @@ interface FolderWithFiles {
 
 interface FoldersResponse {
   folders: FolderWithFiles[]
-  unorganizedFiles: CombinedFile[]
 }
 
 export async function POST(request: NextRequest) {
@@ -212,9 +211,7 @@ export async function GET() {
     // Add database files first
     if (dbFiles) {
       for (const dbFile of dbFiles) {
-        const key = dbFile.folder_id 
-          ? `uploads/${userId}/${dbFile.folder_id}/${dbFile.name}`
-          : `uploads/${userId}/unorganized/${dbFile.name}`
+        const key = `uploads/${userId}/${dbFile.folder_id}/${dbFile.name}`
         processedKeys.add(key)
         
         combinedFiles.push({
@@ -243,17 +240,14 @@ export async function GET() {
       }
     }
 
-    // Separate files by folder and unorganized files
+    // Separate files by folder
     const foldersWithFiles = folders?.map(folder => ({
       ...folder,
       files: combinedFiles?.filter(file => file.folder_id === folder.id) || []
     })) || []
 
-    const unorganizedFiles = combinedFiles?.filter(file => file.folder_id === null) || []
-
     const response: FoldersResponse = {
-      folders: foldersWithFiles,
-      unorganizedFiles
+      folders: foldersWithFiles
     }
 
     return NextResponse.json(response)

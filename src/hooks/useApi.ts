@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 // Types
 export interface FoldersResponse {
   folders: FolderWithFiles[]
-  unorganizedFiles: File[]
 }
 
 export interface FolderWithFiles {
@@ -21,7 +20,7 @@ export interface File {
   mime_type: string
   url: string
   created_at: string
-  folder_id: string | null
+  folder_id: string
   user_id: string
   transcription?: {
     id: string

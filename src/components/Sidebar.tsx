@@ -11,7 +11,11 @@ interface File {
   mime_type: string
   url: string
   created_at: string
-  folder_id: string | null
+  folder_id: string
+  user_id: string
+  source?: 'database' | 's3'
+  s3_key?: string
+  last_modified?: string
 }
 
 interface FolderWithFiles extends Folder {
@@ -19,23 +23,21 @@ interface FolderWithFiles extends Folder {
 }
 
 interface SidebarProps {
-  folders: FolderWithFiles[]
-  onSelectFolder: (folderId: string | null) => void
-  unorganizedFilesCount?: number
-  onAddFolder: (name: string) => Promise<void>
-  onRenameFolder: (id: string, name: string) => Promise<void>
-  onDeleteFolder: (id: string) => Promise<void>
-  onExportFolder: (id: string) => Promise<void>
+  folders: Folder[]
+  selectedFolderId: string | null
+  onFolderSelect: (folderId: string | null) => void
+  onCreateFolder: () => void
+  onRenameFolder: (folder: Folder) => void
+  onDeleteFolder: (folderId: string) => void
 }
 
 export default function Sidebar({ 
   folders, 
-  onSelectFolder, 
-  unorganizedFilesCount = 0,
-  onAddFolder,
+  selectedFolderId,
+  onFolderSelect,
+  onCreateFolder,
   onRenameFolder,
-  onDeleteFolder,
-  onExportFolder
+  onDeleteFolder
 }: SidebarProps) {
   const [activeItem, setActiveItem] = useState<string | null>('recent')
   const [menuFolderId, setMenuFolderId] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export default function Sidebar({
 
   const handleItemClick = (itemId: string | null) => {
     setActiveItem(itemId)
-    onSelectFolder(itemId === 'recent' ? null : itemId)
+    onFolderSelect(itemId === 'recent' ? null : itemId)
   }
 
   const handleToggleMenu = (folderId: string) => {
@@ -82,7 +84,10 @@ export default function Sidebar({
 
   const handleRenameSubmit = async () => {
     if (renamingFolderId && renamingFolderName.trim()) {
-      await onRenameFolder(renamingFolderId, renamingFolderName.trim())
+      const folder = folders.find(f => f.id === renamingFolderId)
+      if (folder) {
+        await onRenameFolder(folder)
+      }
       setRenamingFolderId(null)
       setRenamingFolderName('')
     }
@@ -95,7 +100,8 @@ export default function Sidebar({
   
   const handleAddFolder = async () => {
     if (newFolderName.trim()) {
-      await onAddFolder(newFolderName.trim())
+      // This should trigger a modal or form to create the folder
+      // For now, we'll just close the input
       setNewFolderName('')
       setShowNewFolderInput(false)
     }
@@ -129,30 +135,6 @@ export default function Sidebar({
                 <path d="M1 3h18v2H1V3zm0 4h18v2H1V7zm0 4h18v2H1v-2zm0 4h18v2H1v-2z" />
               </svg>
               Recent Files
-            </a>
-          </li>
-          <li>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                handleItemClick('unorganized')
-              }}
-              className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
-                activeItem === 'unorganized'
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <svg className="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-              </svg>
-              Unorganized Files
-              {unorganizedFilesCount > 0 && (
-                <span className="ml-auto bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded-full">
-                  {unorganizedFilesCount}
-                </span>
-              )}
             </a>
           </li>
         </ul>
@@ -246,11 +228,6 @@ export default function Sidebar({
                         </button>
                       </li>
                       <li>
-                        <button onClick={() => onExportFolder(folder.id)} className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                           <Download size={14} className="mr-2" /> Export
-                        </button>
-                      </li>
-                       <li>
                         <button onClick={() => onDeleteFolder(folder.id)} className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                            <Trash2 size={14} className="mr-2" /> Delete
                         </button>

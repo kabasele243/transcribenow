@@ -6,7 +6,7 @@ interface UploadModalProps {
   isOpen: boolean
   onClose: () => void
   onFilesUploaded: () => void
-  folderId?: string | null
+  folderId: string
 }
 
 interface UploadingFile {
@@ -60,10 +60,7 @@ export default function UploadModal({ isOpen, onClose, onFilesUploaded, folderId
           formData.append('files', uploadingFile.file)
         })
         
-        // Add folderId if provided
-        if (folderId) {
-          formData.append('folderId', folderId)
-        }
+        formData.append('folderId', folderId)
 
         const response = await fetch('/api/upload', {
           method: 'POST',

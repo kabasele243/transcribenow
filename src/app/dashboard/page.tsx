@@ -81,18 +81,17 @@ function FileRow({
 }
 
 export default function DashboardPage() {
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<FileType | null>(null)
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
-  const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
-  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
-
   const { data: foldersData, isLoading, error } = useFolders()
+  const folders = foldersData?.folders || []
+  
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<FileType | null>(null)
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set())
+  const [isFolderMenuOpen, setIsFolderMenuOpen] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
+
   const updateFolderMutation = useUpdateFolder()
   const deleteFolderMutation = useDeleteFolder()
-
-  const folders = useMemo(() => foldersData?.folders || [], [foldersData?.folders])
-  const unorganizedFiles = foldersData?.unorganizedFiles || []
 
   useEffect(() => {
     if (!selectedFolderId && folders && folders.length > 0) {
@@ -165,7 +164,7 @@ export default function DashboardPage() {
 
   const handleSelectAllFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFolder = folders.find(f => f.id === selectedFolderId)
-    const currentFiles = selectedFolder ? selectedFolder.files : unorganizedFiles
+    const currentFiles = selectedFolder ? selectedFolder.files : []
     
     if (e.target.checked) {
       setSelectedFileIds(new Set(currentFiles.map(f => f.id)));
@@ -191,8 +190,8 @@ export default function DashboardPage() {
   }
 
   const selectedFolder = folders.find(f => f.id === selectedFolderId)
-  const currentFiles = selectedFolder ? selectedFolder.files : unorganizedFiles
-  const currentFolderName = selectedFolder ? selectedFolder.name : "Recent Files"
+  const currentFiles = selectedFolder ? selectedFolder.files : []
+  const currentFolderName = selectedFolder ? selectedFolder.name : "Select a folder to view files"
 
   return (
     <div className="flex h-screen font-sans bg-white text-gray-800">
@@ -251,17 +250,24 @@ export default function DashboardPage() {
               <div className="flex items-center space-x-2">
                 <button className="p-2 rounded-md hover:bg-gray-200 transition-colors"><Search className="w-5 h-5 text-gray-500" /></button>
                 <button className="p-2 rounded-md hover:bg-gray-200 transition-colors"><Mic className="w-5 h-5 text-gray-500" /></button>
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Transcribe Files
-                </button>
+                {selectedFolderId ? (
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Transcribe Files
+                  </button>
+                ) : (
+                  <div className="text-sm text-gray-500 px-4 py-2">
+                    Select a folder to upload files
+                  </div>
+                )}
                 <div className="relative">
                   <button
                     onClick={() => setIsFolderMenuOpen(!isFolderMenuOpen)}
                     className="p-2 rounded-md hover:bg-gray-200 transition-colors"
+                    disabled={!selectedFolderId}
                   >
                     <MoreVertical className="w-5 h-5 text-gray-500" />
                   </button>
@@ -292,51 +298,68 @@ export default function DashboardPage() {
             </div>
             
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-4 w-10 text-left">
-                        <input 
-                          type="checkbox" 
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          onChange={handleSelectAllFiles}
-                          checked={currentFiles.length > 0 && selectedFileIds.size === currentFiles.length}
+              {selectedFolderId ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-4 w-10 text-left">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            onChange={handleSelectAllFiles}
+                            checked={currentFiles.length > 0 && selectedFileIds.size === currentFiles.length}
+                          />
+                        </th>
+                        <th className="p-4 text-left font-semibold text-gray-600">Name</th>
+                        <th className="p-4 text-left font-semibold text-gray-600">Uploaded</th>
+                        <th className="p-4 text-left font-semibold text-gray-600">Duration</th>
+                        <th className="p-4 text-left font-semibold text-gray-600">Mode</th>
+                        <th className="p-4 text-left font-semibold text-gray-600">Status</th>
+                        <th className="p-4 w-12"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {currentFiles.map(file => (
+                        <FileRow
+                          key={file.id}
+                          file={file}
+                          isSelected={selectedFileIds.has(file.id)}
+                          onSelect={handleSelectFile}
+                          onClick={handleFileClick}
                         />
-                      </th>
-                      <th className="p-4 text-left font-semibold text-gray-600">Name</th>
-                      <th className="p-4 text-left font-semibold text-gray-600">Uploaded</th>
-                      <th className="p-4 text-left font-semibold text-gray-600">Duration</th>
-                      <th className="p-4 text-left font-semibold text-gray-600">Mode</th>
-                      <th className="p-4 text-left font-semibold text-gray-600">Status</th>
-                      <th className="p-4 w-12"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {currentFiles.map(file => (
-                      <FileRow
-                        key={file.id}
-                        file={file}
-                        isSelected={selectedFileIds.has(file.id)}
-                        onSelect={handleSelectFile}
-                        onClick={handleFileClick}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="text-gray-400 mb-4">
+                    <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                      <path d="M20 4H10a2 2 0 00-2 2v20a2 2 0 002 2h28a2 2 0 002-2V14a2 2 0 00-2-2h-8l-2-2z" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No folder selected</h3>
+                  <p className="text-gray-600">
+                    Select a folder from the sidebar to view and manage your files.
+                  </p>
+                </div>
+              )}
             </div>
           </main>
         </div>
       )}
 
-      <UploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onFilesUploaded={() => {
-          setShowUploadModal(false)
-        }}
-      />
+      {selectedFolderId && (
+        <UploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onFilesUploaded={() => {
+            setShowUploadModal(false)
+          }}
+          folderId={selectedFolderId}
+        />
+      )}
     </div>
   )
 } 
