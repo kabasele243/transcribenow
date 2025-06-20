@@ -22,9 +22,7 @@ export default function Header() {
   }
 
   const navigation = [
-    ...(isAuthenticated ? [{ name: 'Dashboard', href: '/dashboard' }] : []),
-    { name: 'Pricing', href: '/pricing' },
-    { name: 'Contact', href: '/contact' },
+    ...(isAuthenticated ? [{ name: 'Dashboard', href: '/dashboard' }] : [])
   ]
 
   const isActiveLink = (href: string) => {
