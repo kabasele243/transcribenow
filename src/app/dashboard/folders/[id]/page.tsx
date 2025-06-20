@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/DashboardLayout'
 import FolderView from '@/components/FolderView'
+import { Folder } from '@/lib/database'
 
 interface File {
   id: string
@@ -14,22 +15,18 @@ interface File {
   createdAt: string
 }
 
-interface Folder {
-  id: string
-  name: string
-  userId: string
-  createdAt: string
+interface FolderWithFiles extends Folder {
   files: File[]
 }
 
 export default function FolderDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const [folder, setFolder] = useState<Folder | null>(null)
+  const [folder, setFolder] = useState<FolderWithFiles | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const fetchFolder = async () => {
+  const fetchFolder = useCallback(async () => {
     try {
       const response = await fetch('/api/folders')
       if (!response.ok) {
@@ -43,19 +40,25 @@ export default function FolderDetailPage() {
         return
       }
       
-      setFolder(foundFolder)
+      // Mock files data for now - replace with actual API call
+      const folderWithFiles: FolderWithFiles = {
+        ...foundFolder,
+        files: []
+      }
+      
+      setFolder(folderWithFiles)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch folder')
     } finally {
       setLoading(false)
     }
-  }
+  }, [params.id])
 
   useEffect(() => {
     if (params.id) {
       fetchFolder()
     }
-  }, [params.id])
+  }, [params.id, fetchFolder])
 
   const handleBack = () => {
     router.push('/dashboard')

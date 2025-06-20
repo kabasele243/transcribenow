@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { 
   selectUser, 
@@ -113,10 +114,12 @@ export default function AuthExample() {
               {user.avatar && (
                 <div className="flex justify-between">
                   <span className="text-gray-600">Avatar:</span>
-                  <img 
+                  <Image 
                     src={user.avatar} 
                     alt="User avatar" 
-                    className="w-8 h-8 rounded-full"
+                    width={32}
+                    height={32}
+                    className="rounded-full"
                   />
                 </div>
               )}

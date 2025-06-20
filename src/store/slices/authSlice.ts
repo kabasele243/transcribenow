@@ -64,16 +64,16 @@ export const signOutWithClerk = createAsyncThunk(
 
 export const syncClerkUser = createAsyncThunk(
   'auth/syncClerkUser',
-  async (clerkUser: any) => {
+  async (clerkUser: { id: string; emailAddresses?: Array<{ emailAddress: string }>; fullName?: string | null; firstName?: string | null; lastName?: string | null; imageUrl?: string | null }) => {
     // Transform Clerk user to our User interface
     const user: User = {
       id: clerkUser.id,
       email: clerkUser.emailAddresses?.[0]?.emailAddress || '',
       name: clerkUser.fullName || clerkUser.firstName || '',
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      avatar: clerkUser.imageUrl,
-      imageUrl: clerkUser.imageUrl,
+      firstName: clerkUser.firstName || undefined,
+      lastName: clerkUser.lastName || undefined,
+      avatar: clerkUser.imageUrl || undefined,
+      imageUrl: clerkUser.imageUrl || undefined,
     }
     return user
   }

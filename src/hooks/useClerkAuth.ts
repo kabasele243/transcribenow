@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useUser, useAuth } from '@clerk/nextjs'
 import { useAppDispatch } from '@/store/hooks'
-import { syncClerkUser, clearUser, setAuthError } from '@/store/slices/authSlice'
+import { syncClerkUser, clearUser } from '@/store/slices/authSlice'
 
 /**
  * Custom hook that integrates Clerk authentication with Redux

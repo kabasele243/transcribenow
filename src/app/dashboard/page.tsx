@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/DashboardLayout'
 import FolderSidebar from '@/components/FolderSidebar'
 import CreateFolderForm from '@/components/CreateFolderForm'
+import { Folder } from '@/lib/database'
 
 interface File {
   id: string
@@ -14,16 +15,12 @@ interface File {
   createdAt: string
 }
 
-interface Folder {
-  id: string
-  name: string
-  userId: string
-  createdAt: string
+interface FolderWithFiles extends Folder {
   files: File[]
 }
 
 export default function DashboardPage() {
-  const [folders, setFolders] = useState<Folder[]>([])
+  const [folders, setFolders] = useState<FolderWithFiles[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showCreateFolder, setShowCreateFolder] = useState(false)
@@ -35,7 +32,12 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch folders')
       }
       const data = await response.json()
-      setFolders(data)
+      // Add empty files array to each folder for now
+      const foldersWithFiles: FolderWithFiles[] = data.map((folder: Folder) => ({
+        ...folder,
+        files: []
+      }))
+      setFolders(foldersWithFiles)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch folders')
     } finally {
@@ -164,7 +166,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center space-x-4">
                           <span className="text-sm text-gray-500">
-                            {new Date(folder.createdAt).toLocaleDateString()}
+                            {new Date(folder.created_at).toLocaleDateString()}
                           </span>
                         </div>
                       </div>

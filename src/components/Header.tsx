@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs"
 import { useAppSelector } from '@/store/hooks'
 import { selectUser, selectIsAuthenticated, selectAuthLoading } from '@/store/slices/authSlice'
 

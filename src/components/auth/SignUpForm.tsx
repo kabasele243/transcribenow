@@ -1,41 +1,36 @@
 'use client'
 
 import { SignUp } from '@clerk/nextjs'
-import { useAppDispatch, useAppSelector } from '@/store/hooks'
-import { selectAuthError, selectIsSigningUp } from '@/store/slices/authSlice'
+import { useAppSelector } from '@/store/hooks'
+import { selectAuthError } from '@/store/slices/authSlice'
 
 interface SignUpFormProps {
   redirectUrl?: string
   className?: string
 }
 
-export default function SignUpForm({ redirectUrl = '/dashboard', className = '' }: SignUpFormProps) {
-  const dispatch = useAppDispatch()
-  const error = useAppSelector(selectAuthError)
-  const isSigningUp = useAppSelector(selectIsSigningUp)
+export default function SignUpForm({ redirectUrl, className }: SignUpFormProps) {
+  const authError = useAppSelector(selectAuthError)
 
   return (
-    <div className={`w-full max-w-md mx-auto ${className}`}>
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-800">{error}</p>
+    <div className={className}>
+      {authError && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-800 text-sm">{authError}</p>
         </div>
       )}
       
-      <SignUp
-        path="/sign-up"
-        routing="path"
-        signInUrl="/sign-in"
+      <SignUp 
         redirectUrl={redirectUrl}
         appearance={{
           elements: {
-            formButtonPrimary: 'bg-blue-600 hover:bg-blue-700 text-white',
-            card: 'shadow-lg border border-gray-200',
-            headerTitle: 'text-2xl font-bold text-gray-900',
-            headerSubtitle: 'text-gray-600',
-            socialButtonsBlockButton: 'border border-gray-300 hover:bg-gray-50',
-            formFieldInput: 'border border-gray-300 focus:border-blue-500 focus:ring-blue-500',
-            footerActionLink: 'text-blue-600 hover:text-blue-700',
+            rootBox: "mx-auto",
+            card: "shadow-lg border border-gray-200",
+            headerTitle: "text-2xl font-bold text-gray-900",
+            headerSubtitle: "text-gray-600",
+            formButtonPrimary: "bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors",
+            formFieldInput: "border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 rounded-md px-3 py-2",
+            footerActionLink: "text-blue-600 hover:text-blue-800",
           }
         }}
       />

@@ -4,14 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import DashboardLayout from '@/components/DashboardLayout'
 import FolderSidebar from '@/components/FolderSidebar'
-
-interface Folder {
-  id: string
-  name: string
-  fileCount: number
-  createdAt: string
-  lastModified: string
-}
+import { Folder } from '@/lib/database'
 
 export default function FoldersPage() {
   const [folders, setFolders] = useState<Folder[]>([])
@@ -25,44 +18,38 @@ export default function FoldersPage() {
         {
           id: '1',
           name: 'Meeting Recordings',
-          fileCount: 5,
-          createdAt: '2024-01-15T10:00:00Z',
-          lastModified: '2024-01-15T16:30:00Z'
+          user_id: 'user1',
+          created_at: '2024-01-15T10:00:00Z'
         },
         {
           id: '2',
           name: 'Podcast Episodes',
-          fileCount: 12,
-          createdAt: '2024-01-10T14:30:00Z',
-          lastModified: '2024-01-14T11:20:00Z'
+          user_id: 'user1',
+          created_at: '2024-01-10T14:30:00Z'
         },
         {
           id: '3',
           name: 'Interviews',
-          fileCount: 3,
-          createdAt: '2024-01-05T09:15:00Z',
-          lastModified: '2024-01-13T15:45:00Z'
+          user_id: 'user1',
+          created_at: '2024-01-05T09:15:00Z'
         },
         {
           id: '4',
           name: 'Conference Talks',
-          fileCount: 8,
-          createdAt: '2024-01-08T12:00:00Z',
-          lastModified: '2024-01-12T09:30:00Z'
+          user_id: 'user1',
+          created_at: '2024-01-08T12:00:00Z'
         },
         {
           id: '5',
           name: 'Training Sessions',
-          fileCount: 6,
-          createdAt: '2024-01-12T08:00:00Z',
-          lastModified: '2024-01-14T14:15:00Z'
+          user_id: 'user1',
+          created_at: '2024-01-12T08:00:00Z'
         },
         {
           id: '6',
           name: 'Client Calls',
-          fileCount: 15,
-          createdAt: '2024-01-03T10:30:00Z',
-          lastModified: '2024-01-15T17:00:00Z'
+          user_id: 'user1',
+          created_at: '2024-01-03T10:30:00Z'
         }
       ]
 
@@ -77,9 +64,8 @@ export default function FoldersPage() {
       const newFolder: Folder = {
         id: Date.now().toString(),
         name: folderName,
-        fileCount: 0,
-        createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString()
+        user_id: 'user1',
+        created_at: new Date().toISOString()
       }
       setFolders(prev => [newFolder, ...prev])
     }
@@ -144,15 +130,14 @@ export default function FoldersPage() {
                         </svg>
                       </div>
                       <span className="text-sm text-gray-500">
-                        {folder.fileCount} {folder.fileCount === 1 ? 'file' : 'files'}
+                        Created: {new Date(folder.created_at).toLocaleDateString()}
                       </span>
                     </div>
                     
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{folder.name}</h3>
                     
                     <div className="space-y-1 text-sm text-gray-500">
-                      <p>Created: {new Date(folder.createdAt).toLocaleDateString()}</p>
-                      <p>Modified: {new Date(folder.lastModified).toLocaleDateString()}</p>
+                      <p>Created: {new Date(folder.created_at).toLocaleDateString()}</p>
                     </div>
                     
                     <div className="mt-4 flex items-center text-blue-600 text-sm font-medium">

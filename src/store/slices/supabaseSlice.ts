@@ -38,7 +38,7 @@ const initialState: SupabaseState = {
 // Async thunks for Supabase operations
 export const fetchFolders = createAsyncThunk(
   'supabase/fetchFolders',
-  async (session: any) => {
+  async (session: { getToken(options?: { template?: string }): Promise<string | null> }) => {
     const supabase = createClientSupabaseClient(session)
     const { data, error } = await supabase
       .from('folders')
@@ -52,7 +52,7 @@ export const fetchFolders = createAsyncThunk(
 
 export const fetchFiles = createAsyncThunk(
   'supabase/fetchFiles',
-  async ({ session, folderId }: { session: any; folderId?: string }) => {
+  async ({ session, folderId }: { session: { getToken(options?: { template?: string }): Promise<string | null> }; folderId?: string }) => {
     const supabase = createClientSupabaseClient(session)
     let query = supabase
       .from('files')
@@ -72,7 +72,7 @@ export const fetchFiles = createAsyncThunk(
 
 export const createFolder = createAsyncThunk(
   'supabase/createFolder',
-  async ({ session, name }: { session: any; name: string }) => {
+  async ({ session, name }: { session: { getToken(options?: { template?: string }): Promise<string | null> }; name: string }) => {
     const supabase = createClientSupabaseClient(session)
     const { data, error } = await supabase
       .from('folders')
@@ -87,7 +87,7 @@ export const createFolder = createAsyncThunk(
 
 export const deleteFolder = createAsyncThunk(
   'supabase/deleteFolder',
-  async ({ session, id }: { session: any; id: string }) => {
+  async ({ session, id }: { session: { getToken(options?: { template?: string }): Promise<string | null> }; id: string }) => {
     const supabase = createClientSupabaseClient(session)
     const { error } = await supabase
       .from('folders')
@@ -101,7 +101,7 @@ export const deleteFolder = createAsyncThunk(
 
 export const createFile = createAsyncThunk(
   'supabase/createFile',
-  async ({ session, fileData }: { session: any; fileData: Omit<File, 'id' | 'user_id' | 'created_at'> }) => {
+  async ({ session, fileData }: { session: { getToken(options?: { template?: string }): Promise<string | null> }; fileData: Omit<File, 'id' | 'user_id' | 'created_at'> }) => {
     const supabase = createClientSupabaseClient(session)
     const { data, error } = await supabase
       .from('files')
@@ -116,7 +116,7 @@ export const createFile = createAsyncThunk(
 
 export const deleteFile = createAsyncThunk(
   'supabase/deleteFile',
-  async ({ session, id }: { session: any; id: string }) => {
+  async ({ session, id }: { session: { getToken(options?: { template?: string }): Promise<string | null> }; id: string }) => {
     const supabase = createClientSupabaseClient(session)
     const { error } = await supabase
       .from('files')

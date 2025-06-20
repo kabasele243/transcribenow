@@ -162,7 +162,7 @@ export default function SupabaseReduxExample() {
           <p className="text-gray-500">No folders created yet.</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {folders.map((folder: any) => (
+            {folders.map((folder: { id: string; name: string; created_at: string }) => (
               <div
                 key={folder.id}
                 className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
@@ -205,7 +205,7 @@ export default function SupabaseReduxExample() {
           <p className="text-gray-500">No files uploaded yet.</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {files.map((file: any) => {
+            {files.map((file: { id: string; name: string; size: number; mime_type: string; folder_id: string; created_at: string }) => {
               const folder = getFolderById(file.folder_id)
               return (
                 <div

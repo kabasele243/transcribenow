@@ -13,24 +13,32 @@ import {
   selectSelectedFolderId,
   selectFoldersLoading,
   selectFoldersError,
-  type Folder
+  type Folder as ReduxFolder
 } from '@/store/slices/foldersSlice'
 import { 
-  uploadFiles,
   selectUploading,
   selectUploadsError
 } from '@/store/slices/uploadsSlice'
+import { Folder } from '@/lib/database'
 
 export default function UploadPage() {
   const dispatch = useAppDispatch()
   
   // Selectors
-  const folders = useAppSelector(selectFolders)
+  const reduxFolders = useAppSelector(selectFolders)
   const selectedFolderId = useAppSelector(selectSelectedFolderId)
   const foldersLoading = useAppSelector(selectFoldersLoading)
   const foldersError = useAppSelector(selectFoldersError)
   const uploading = useAppSelector(selectUploading)
   const uploadsError = useAppSelector(selectUploadsError)
+
+  // Convert Redux folders to database format
+  const folders: Folder[] = reduxFolders.map((folder: ReduxFolder) => ({
+    id: folder.id,
+    name: folder.name,
+    user_id: 'user1', // Mock user ID
+    created_at: folder.createdAt
+  }))
 
   // Fetch folders on component mount
   useEffect(() => {
@@ -41,12 +49,6 @@ export default function UploadPage() {
     const folderName = prompt('Enter folder name:')
     if (folderName) {
       dispatch(createFolder(folderName))
-    }
-  }
-
-  const handleFileSelect = (files: File[]) => {
-    if (selectedFolderId) {
-      dispatch(uploadFiles({ files, folderId: selectedFolderId }))
     }
   }
 
@@ -99,7 +101,7 @@ export default function UploadPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {folders.map((folder: Folder) => (
+                  {reduxFolders.map((folder: ReduxFolder) => (
                     <label
                       key={folder.id}
                       className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -136,7 +138,11 @@ export default function UploadPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Files</h3>
                 <FileUpload 
-                  onFileSelect={handleFileSelect} 
+                  folderId={selectedFolderId}
+                  onFileUploaded={() => {
+                    // Refresh folders after upload
+                    dispatch(fetchFolders())
+                  }}
                 />
                 
                 {uploading && (

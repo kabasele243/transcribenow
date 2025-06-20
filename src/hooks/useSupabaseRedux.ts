@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useSession } from '@clerk/nextjs'
 import { createClientSupabaseClient } from '@/lib/supabase'
